@@ -19,15 +19,16 @@ const COLOR_CYBER_GLASS: Color = Color::srgba(1.0, 1.0, 1.0, 0.05);
 
 use crate::camera_controller::UnityCamera;
 use crate::chunk_system::{ChunkManager, VoxelMaterial};
+use crate::tetra_chunk_system::TetraChunkManager;
 
 // =============================================================================
 // State & Components
 // =============================================================================
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
 pub enum EditorView {
-    #[default] Scene, // Unity Scene View
+    #[default] Scene, // Cube World
+    Tetra,  // Tetra World
     Code,  // VSCode Editor
-    System, // System Logs
 }
 
 #[derive(Resource)]
@@ -50,6 +51,11 @@ pub fn setup_ui(
 ) {
     commands.insert_resource(AppState { active_view: EditorView::Scene });
     commands.insert_resource(ChunkManager { 
+        loaded_chunks: std::collections::HashMap::new(),
+        loading_chunks: std::collections::HashSet::new(),
+    });
+
+    commands.insert_resource(TetraChunkManager {
         loaded_chunks: std::collections::HashMap::new(),
         loading_chunks: std::collections::HashSet::new(),
     });
@@ -179,7 +185,7 @@ pub fn setup_ui(
                     BorderColor(COLOR_CYBER_BORDER),
                 ))
                     .with_children(|tabs| {
-                        let data = [("🌍 World View", EditorView::Scene), ("📄 voxel_world.rs", EditorView::Code)];
+                        let data = [("Cube World", EditorView::Scene), ("Tetra World", EditorView::Tetra), ("Code Editor", EditorView::Code)];
                         for (name, view) in data {
                             tabs.spawn((
                                 Button,
@@ -207,6 +213,14 @@ pub fn setup_ui(
                     });
 
                     container.spawn((
+                        Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
+                        ViewContainer(EditorView::Tetra),
+                    )).with_children(|view| {
+                        view.spawn(Node { position_type: PositionType::Absolute, top: Val::Px(15.0), left: Val::Px(15.0), ..default() })
+                            .with_child((Text::new("TETRA MODE :: TETRAHEDRAL VOXEL WORLD"), TextFont { font_size: 11.0, ..default() }, TextColor(COLOR_CYBER_ACCENT)));
+                    });
+
+                    container.spawn((
                         Node { 
                             position_type: PositionType::Absolute, 
                             width: Val::Percent(100.0), 
@@ -215,7 +229,7 @@ pub fn setup_ui(
                             ..default() 
                         },
                         BackgroundColor(COLOR_CYBER_BG), ViewContainer(EditorView::Code),
-                    )).with_child((Text::new("// Voxel Engine Core\n// Refactored for Premium Aesthetics\n\nfn initialize_world() {\n    let config = WorldConfig::default();\n    render_streamer.start(config);\n}"), TextFont { font_size: 15.0, ..default() }, TextColor(COLOR_CYBER_TEXT)));
+                    )).with_child((Text::new("// Voxel Engine Core\n// Cube + Tetra dual mode\n\nfn initialize_world() {\n    let config = WorldConfig::default();\n    render_streamer.start(config);\n}"), TextFont { font_size: 15.0, ..default() }, TextColor(COLOR_CYBER_TEXT)));
                 });
             });
         });

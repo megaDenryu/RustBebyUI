@@ -24,10 +24,23 @@ pub fn generate_naive_mesh(chunk: &Chunk, lod: u32) -> Mesh {
     for x in (0..チャンク解像度).step_by(step) {
         for y in (0..チャンク解像度).step_by(step) {
             for z in (0..チャンク解像度).step_by(step) {
-                let voxel = chunk.get(x, y, z);
-                if voxel.は空気か() {
-                    continue;
+                // LOD用のサンプリング: ブロック内のいずれかがソリッドなら代表として描画
+                let mut representative_voxel = None;
+                'sample: for sx in 0..step {
+                    for sy in 0..step {
+                        for sz in 0..step {
+                            let v = chunk.get(x + sx, y + sy, z + sz);
+                            if !v.は空気か() {
+                                representative_voxel = Some(v);
+                                break 'sample;
+                            }
+                        }
+                    }
                 }
+
+                let Some(voxel) = representative_voxel else {
+                    continue;
+                };
 
                 // ボクセル種別ごとの色
                 let color = match voxel.種別 {

@@ -6,7 +6,8 @@ mod collision;
 mod ui_logic;
 
 use bevy::prelude::*;
-use ui_logic::{setup_ui, handle_button_interaction, update_ui_state};
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use ui_logic::{setup_ui, handle_button_interaction, update_ui_state, update_fps_counter};
 use camera_controller::handle_unity_camera;
 use chunk_system::{manage_chunks, process_chunk_tasks};
 
@@ -22,6 +23,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()))
         // Startup
         .add_systems(Startup, setup_ui)
         // Update Loop
@@ -31,6 +33,7 @@ fn main() {
             handle_unity_camera,
             manage_chunks,
             process_chunk_tasks,
+            update_fps_counter,
         ))
         .run();
 }

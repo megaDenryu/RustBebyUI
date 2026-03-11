@@ -45,7 +45,7 @@ pub const チャンク解像度: usize = 32;     // 1チャンクあたりのボ
 pub const ボクセルスケール: f32 = 0.25;    // ボクセルの表示サイズ
 pub const チャンクのワールドサイズ: f32 = チャンク解像度 as f32 * ボクセルスケール;
 pub const 水面高さ: f32 = 4.0;
-pub const 描画距離: i32 = 12;
+pub const 描画距離: i32 = 7;
 
 #[derive(Clone)]
 pub struct Chunk {

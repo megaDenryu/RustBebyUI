@@ -73,8 +73,8 @@ pub fn setup_ui(
             clear_color: ClearColorConfig::Custom(fog_color), 
             ..default()
         },
-        Transform::from_xyz(8.0, 30.0, 8.0).looking_at(Vec3::new(10.0, 28.0, 10.0), Vec3::Y),
-        UnityCamera { yaw: -0.4, pitch: -0.3, sensitivity: 0.002, speed: 5.0, velocity_y: 0.0, is_grounded: false },
+        Transform::from_xyz(8.0, 25.0, 8.0).looking_at(Vec3::new(10.0, 23.0, 10.0), Vec3::Y),
+        UnityCamera { yaw: -0.4, pitch: -0.3, sensitivity: 0.002, speed: 5.0, velocity_y: 0.0, is_grounded: false, is_flying: false },
         DistanceFog {
             color: fog_color, 
             falloff: FogFalloff::Linear { 

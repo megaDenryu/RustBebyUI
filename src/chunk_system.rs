@@ -78,9 +78,12 @@ pub fn manage_chunks(
         let dz = pos.2 - center_cz;
         let dist_sq = dx * dx + dz * dz;
         
-        // ターゲットLODの決定 (3段階)
-        // 8チャンクまでLOD1（Greedy Mesh高品質）, 14チャンクまでLOD2, 以降LOD4
-        let target_lod = if dist_sq <= 8*8 { 1 } else if dist_sq <= 14*14 { 2 } else { 4 };
+        // ターゲットLODの決定 (4段階, 解像度64対応)
+        // LOD1: 近距離, LOD2: 中距離, LOD4: 遠距離, LOD8: 最遠
+        let target_lod = if dist_sq <= 6*6 { 1 } 
+            else if dist_sq <= 12*12 { 2 } 
+            else if dist_sq <= 17*17 { 4 } 
+            else { 8 };
 
         let needs_load = if let Some(&(_, _, current_lod)) = chunk_manager.loaded_chunks.get(&pos) {
             current_lod != target_lod // LOD更新が必要

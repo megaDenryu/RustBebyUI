@@ -1,10 +1,14 @@
-mod ui_logic;
-mod domain;
+mod voxel_world;
 mod meshing;
-
+mod camera_controller;
+mod chunk_system;
+mod collision;
+mod ui_logic;
 
 use bevy::prelude::*;
-use ui_logic::{setup_ui, handle_button_interaction, update_scene_objects, animate_timeline, update_ui_state};
+use ui_logic::{setup_ui, handle_button_interaction, update_ui_state};
+use camera_controller::handle_unity_camera;
+use chunk_system::{manage_chunks, process_chunk_tasks};
 
 fn main() {
     App::new()
@@ -23,11 +27,10 @@ fn main() {
         // Update Loop
         .add_systems(Update, (
             handle_button_interaction,
-            update_scene_objects,
-            animate_timeline,
             update_ui_state,
-            ui_logic::handle_unity_camera,
-            ui_logic::manage_chunks,
+            handle_unity_camera,
+            manage_chunks,
+            process_chunk_tasks,
         ))
         .run();
 }

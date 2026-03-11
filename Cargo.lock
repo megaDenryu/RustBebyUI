@@ -3618,6 +3618,7 @@ name = "rust_bevy_ui"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "futures-lite",
 ]
 
 [[package]]

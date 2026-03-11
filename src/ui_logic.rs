@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use crate::voxel_world::{self};
 
+// プレイヤーの発光マーカー
+#[derive(Component)]
+pub struct PlayerLight;
+
 // =============================================================================
 // Constants: Theme & Nature (Premium Cyber Theme)
 // =============================================================================
@@ -50,7 +54,7 @@ pub fn setup_ui(
         loading_chunks: std::collections::HashSet::new(),
     });
 
-    let fog_color = Color::srgb(0.02, 0.03, 0.05);
+    let fog_color = Color::srgb(0.53, 0.72, 0.9); // 青空
 
     // ボクセルの質感を定義
     let voxel_mat = materials.add(StandardMaterial {
@@ -74,29 +78,42 @@ pub fn setup_ui(
         DistanceFog {
             color: fog_color, 
             falloff: FogFalloff::Linear { 
-                start: (1.0 * voxel_world::チャンクのワールドサイズ), 
-                end: (7.0 * voxel_world::チャンクのワールドサイズ) 
+                start: (8.0 * voxel_world::チャンクのワールドサイズ), 
+                end: (19.0 * voxel_world::チャンクのワールドサイズ) 
             },
             ..default()
         }
-    ));
+    )).with_children(|parent| {
+        // プレイヤー発光: 洞窟内でも視認できるポイントライト
+        parent.spawn((
+            PointLight {
+                color: Color::srgb(1.0, 0.95, 0.8),
+                intensity: 80_000.0,
+                range: 25.0,
+                shadows_enabled: false, // パフォーマンスのため影なし
+                ..default()
+            },
+            Transform::from_xyz(0.0, -0.5, 0.0), // カメラの少し下
+            PlayerLight,
+        ));
+    });
 
-    // --- 3. Light ---
+    // --- 2. Sunlight ---
     commands.spawn((
         DirectionalLight {
-            illuminance: 3500.0,
+            illuminance: 15_000.0, // 明るい太陽光
             shadows_enabled: true,
             shadow_depth_bias: 0.1,
-            shadow_normal_bias: 0.2, // 影のアーティファクト防止
-            color: Color::srgb(0.9, 0.95, 1.0),
+            shadow_normal_bias: 0.2,
+            color: Color::srgb(1.0, 0.98, 0.9), // 暖かい日光
             ..default()
         },
-        Transform::from_xyz(40.0, 100.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(60.0, 120.0, 40.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     commands.insert_resource(AmbientLight {
-        color: Color::srgb(0.2, 0.3, 0.5),
-        brightness: 200.0, 
+        color: Color::srgb(0.6, 0.7, 0.9), // 空色の環境光
+        brightness: 800.0, // 大幅に明るく
     });
 
     // --- 3. UI Layout ---

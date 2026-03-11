@@ -79,9 +79,8 @@ pub fn manage_chunks(
         let dist_sq = dx * dx + dz * dz;
         
         // ターゲットLODの決定 (3段階)
-        // 8チャンクまでLOD1（高品質）, 12チャンクまでLOD2, 以降LOD4
-        // 霧が十分に濃くなる位置（約8チャンク）でLODを切り替える
-        let target_lod = if dist_sq <= 8*8 { 1 } else if dist_sq <= 12*12 { 2 } else { 4 };
+        // 8チャンクまでLOD1（Greedy Mesh高品質）, 14チャンクまでLOD2, 以降LOD4
+        let target_lod = if dist_sq <= 8*8 { 1 } else if dist_sq <= 14*14 { 2 } else { 4 };
 
         let needs_load = if let Some(&(_, _, current_lod)) = chunk_manager.loaded_chunks.get(&pos) {
             current_lod != target_lod // LOD更新が必要
@@ -97,9 +96,9 @@ pub fn manage_chunks(
     // 距離が近い順にソート
     tasks_to_spawn.sort_by_key(|t| t.1);
 
-    // 3. スポーンの制限 (1フレームに最大1つまで: スムーズさを優先)
+    // 3. スポーンの制限 (1フレームに最大2つまで)
     let pool = AsyncComputeTaskPool::get();
-    let spawn_limit = 1;
+    let spawn_limit = 2;
     for (pos, _, target_lod) in tasks_to_spawn.into_iter().take(spawn_limit) {
         chunk_manager.loading_chunks.insert(pos);
         

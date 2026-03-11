@@ -45,7 +45,7 @@ pub const チャンク解像度: usize = 32;     // 1チャンクあたりのボ
 pub const ボクセルスケール: f32 = 0.25;    // ボクセルの表示サイズ
 pub const チャンクのワールドサイズ: f32 = チャンク解像度 as f32 * ボクセルスケール;
 pub const 水面高さ: f32 = 4.0;
-pub const 描画距離: i32 = 7;
+pub const 描画距離: i32 = 20; // 大幅に拡大
 
 #[derive(Clone)]
 pub struct Chunk {
@@ -72,11 +72,16 @@ impl Chunk {
                 let gx = world_offset_x + (x as f32 * ボクセルスケール);
                 let gz = world_offset_z + (z as f32 * ボクセルスケール);
                 
-                // より滑らかで複雑な地形 (擬似Sinノイズ合成)
-                let h_base = (gx * 0.1).sin() * 4.0 + (gz * 0.1).cos() * 4.0;
+                // より複雑で山がちな地形 (擬似ノイズ: 複数オクターブの合成)
+                let h_base = (gx * 0.08).sin() * 5.0 + (gz * 0.08).cos() * 5.0;
+                let h_hills = (gx * 0.2).sin() * (gz * 0.15).cos() * 3.0;
                 let h_detail = (gx * 0.4).sin() * 1.5 + (gz * 0.35).cos() * 1.5;
-                let h_micro = (gx * 0.8).sin() * 0.5 + (gz * 0.7).cos() * 0.5; // 少し周波数を下げて滑らかに
-                let ground_y = 6.0 + h_base + h_detail + h_micro;
+                let h_micro = (gx * 0.8).sin() * 0.5 + (gz * 0.7).cos() * 0.5;
+                
+                // 山脈の生成: 大きなうねりで高い山を作る
+                let mountain = ((gx * 0.03).sin() * (gz * 0.04).cos()).abs() * 12.0;
+                
+                let ground_y = 6.0 + h_base + h_hills + h_detail + h_micro + mountain;
 
                 for y in 0..チャンク解像度 {
                     let gy = world_offset_y + (y as f32 * ボクセルスケール);
@@ -105,12 +110,28 @@ impl Chunk {
                         continue; 
                     }
 
-                    // --- 4. Caves (Connected structures) ---
-                    // 3Dノイズの閾値を下げて洞窟を広げ、接続しやすくする
-                    let cave_noise = (gx * 0.4).sin() * (gy * 0.4).cos() * (gz * 0.4).sin();
-                    let cave_tunnel = (gx * 0.1).cos() * (gz * 0.1).sin(); // 縦方向の大きな空洞
+                    // --- 4. Caves & Tunnels (山を貫くトンネルと洞窟) ---
+                    // 洞窟ノイズ: 3D Sinベースの空洞生成
+                    let cave_noise = (gx * 0.35).sin() * (gy * 0.4).cos() * (gz * 0.35).sin();
                     
-                    if cave_noise > 0.6 || (cave_tunnel > 0.8 && gy < ground_y - 2.0) {
+                    // 大きなトンネル: 山を水平に貫く広い通路
+                    let tunnel_h1 = ((gx * 0.08).cos() * (gz * 0.08).sin()).abs();
+                    let tunnel_h2 = ((gx * 0.12 + 1.0).sin() * (gz * 0.06).cos()).abs();
+                    let tunnel_y_center = 5.0 + (gx * 0.05).sin() * 2.0; // トンネルの高さが少し上下する
+                    let tunnel_radius = 1.5;
+                    let is_tunnel = (tunnel_h1 < 0.15 || tunnel_h2 < 0.12) 
+                        && (gy - tunnel_y_center).abs() < tunnel_radius 
+                        && gy < ground_y - 1.0; // 地表から最低1m下
+                    
+                    // 小さな洞窟: スポンジ状の穴
+                    let cave_small = (gx * 0.5).sin() * (gy * 0.6).cos() * (gz * 0.5).sin()
+                        + (gx * 0.3 + 2.0).cos() * (gy * 0.3).sin() * (gz * 0.4 + 1.0).cos() * 0.5;
+                    
+                    // 縦穴: 地下への落とし穴
+                    let vertical_shaft = ((gx * 0.15).sin() * (gz * 0.15).cos()).abs();
+                    let is_shaft = vertical_shaft < 0.05 && gy < ground_y - 2.0 && gy > 1.0;
+                    
+                    if cave_noise > 0.55 || is_tunnel || cave_small > 0.85 || is_shaft {
                         if gy <= 水面高さ {
                             chunk.set(x, y, z, ボクセル::水);
                         } else {
@@ -158,7 +179,6 @@ impl Chunk {
 }
 
 // 穴を掘る（球状のくり抜き）純粋関数
-// 既存のChunkと破壊位置・半径を受け取り、副作用なく新しいChunkを返す
 pub fn carve_sphere(chunk: &Chunk, cx: f32, cy: f32, cz: f32, radius: f32) -> Chunk {
     let mut new_chunk = chunk.clone();
     let r2 = radius * radius;

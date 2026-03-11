@@ -1,23 +1,33 @@
 mod ui_logic;
+mod domain;
+mod meshing;
+
 
 use bevy::prelude::*;
-use ui_logic::{setup_ui, handle_button_interaction};
+use ui_logic::{setup_ui, handle_button_interaction, update_scene_objects, animate_timeline, update_ui_state};
 
 fn main() {
     App::new()
-        // ウィンドウの初期設定 (Window Plugin の構成)
+        // Window Setup
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Rust Bevy UI - Sample Window".into(),
-                resolution: (800u32, 600u32).into(),
+                title: "One O Net - Cyber Studio v0.9".into(),
+                resolution: (1280.0, 720.0).into(),
                 present_mode: bevy::window::PresentMode::AutoVsync,
                 ..default()
             }),
             ..default()
         }))
-        // UI 設定 (View 構築)
+        // Startup
         .add_systems(Startup, setup_ui)
-        // システム (Orchestrator 登録)
-        .add_systems(Update, handle_button_interaction)
+        // Update Loop
+        .add_systems(Update, (
+            handle_button_interaction,
+            update_scene_objects,
+            animate_timeline,
+            update_ui_state,
+            ui_logic::handle_unity_camera,
+            ui_logic::manage_chunks,
+        ))
         .run();
 }

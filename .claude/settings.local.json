@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/pokr301qup/python_dev/VoiroStudio/RefucteringVoiroStudio/GeminiMockApp/AutoDevAgentPro/ElectronApp/**)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

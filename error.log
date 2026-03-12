@@ -1,0 +1,117 @@
+   Compiling rust_bevy_ui v0.1.0 (C:\Users\pokr301qup\python_dev\VoiroStudio\RefucteringVoiroStudio\RustBebyUI)
+error[E0432]: unresolved import `crate::tetra_world::get_warped_vertex`
+ --> src\tetra_meshing.rs:8:99
+  |
+8 | use crate::tetra_world::{TetraChunk, TETRA_VERTICES_EVEN, TETRA_VERTICES_ODD, get_neighbor_tetra, get_warped_vertex};
+  |                                                                                                   ^^^^^^^^^^^^^^^^^ no `get_warped_vertex` in `tetra_world`
+
+warning: unused imports: `繝√Ε繝ｳ繧ｯ縺ｮ繝ｯ繝ｼ繝ｫ繝峨し繧､繧ｺ` and `繝懊け繧ｻ繝ｫ`
+ --> src\tetra_world.rs:6:26
+  |
+6 | use crate::voxel_world::{繝懊け繧ｻ繝ｫ, 繝懊け繧ｻ繝ｫ遞ｮ蛻･, 繝√Ε繝ｳ繧ｯ隗｣蜒丞ｺｦ, 繝懊け繧ｻ繝ｫ繧ｹ繧ｱ繝ｼ繝ｫ, 繝√Ε繝ｳ繧ｯ縺ｮ繝ｯ繝ｼ繝ｫ繝峨し繧､繧ｺ, 豌ｴ髱｢鬮倥＆, 蟯ｩ逶､縺ｮ鬮倥＆};
+  |                          ^^^^^^^^                                                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:66:25
+   |
+66 |                         get_warped_vertex(gx,   gy,   gz),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+66 |                         Self::get_warped_vertex(gx,   gy,   gz),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:67:25
+   |
+67 |                         get_warped_vertex(gx+1, gy,   gz),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+67 |                         Self::get_warped_vertex(gx+1, gy,   gz),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:68:25
+   |
+68 |                         get_warped_vertex(gx+1, gy+1, gz),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+68 |                         Self::get_warped_vertex(gx+1, gy+1, gz),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:69:25
+   |
+69 |                         get_warped_vertex(gx,   gy+1, gz),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+69 |                         Self::get_warped_vertex(gx,   gy+1, gz),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:70:25
+   |
+70 |                         get_warped_vertex(gx,   gy,   gz+1),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+70 |                         Self::get_warped_vertex(gx,   gy,   gz+1),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:71:25
+   |
+71 |                         get_warped_vertex(gx+1, gy,   gz+1),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+71 |                         Self::get_warped_vertex(gx+1, gy,   gz+1),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:72:25
+   |
+72 |                         get_warped_vertex(gx+1, gy+1, gz+1),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+72 |                         Self::get_warped_vertex(gx+1, gy+1, gz+1),
+   |                         ++++++
+
+error[E0425]: cannot find function `get_warped_vertex` in this scope
+  --> src\tetra_world.rs:73:25
+   |
+73 |                         get_warped_vertex(gx,   gy+1, gz+1),
+   |                         ^^^^^^^^^^^^^^^^^ not found in this scope
+   |
+help: consider using the associated function on `Self`
+   |
+73 |                         Self::get_warped_vertex(gx,   gy+1, gz+1),
+   |                         ++++++
+
+warning: variable does not need to be mutable
+   --> src\meshing.rs:147:25
+    |
+147 |                     let mut make_pos = |u_val: f32, v_val: f32| -> [f32; 3] {
+    |                         ----^^^^^^^^
+    |                         |
+    |                         help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+Some errors have detailed explanations: E0425, E0432.
+For more information about an error, try `rustc --explain E0425`.
+warning: `rust_bevy_ui` (bin "rust_bevy_ui") generated 2 warnings
+error: could not compile `rust_bevy_ui` (bin "rust_bevy_ui") due to 9 previous errors; 2 warnings emitted

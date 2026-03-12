@@ -12,8 +12,8 @@ use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use ui_logic::{setup_ui, handle_button_interaction, update_ui_state, update_fps_counter, AppState, EditorView};
 use camera_controller::handle_unity_camera;
-use chunk_system::{manage_chunks, process_chunk_tasks};
-use tetra_chunk_system::{manage_tetra_chunks, process_tetra_chunk_tasks};
+use chunk_system::{manage_chunks, process_chunk_tasks, ChunkRenderData};
+use tetra_chunk_system::{manage_tetra_chunks, process_tetra_chunk_tasks, TetraChunkMarker};
 
 fn is_cube_mode(state: Res<AppState>) -> bool {
     state.active_view == EditorView::Scene
@@ -21,6 +21,24 @@ fn is_cube_mode(state: Res<AppState>) -> bool {
 
 fn is_tetra_mode(state: Res<AppState>) -> bool {
     state.active_view == EditorView::Tetra
+}
+
+fn toggle_chunk_visibility(
+    state: Res<AppState>,
+    mut cube_query: Query<&mut Visibility, (With<ChunkRenderData>, Without<TetraChunkMarker>)>,
+    mut tetra_query: Query<&mut Visibility, (With<TetraChunkMarker>, Without<ChunkRenderData>)>,
+) {
+    if state.is_changed() || state.is_added() {
+        let is_cube = state.active_view == EditorView::Scene;
+        for mut vis in &mut cube_query {
+            *vis = if is_cube { Visibility::Visible } else { Visibility::Hidden };
+        }
+        
+        let is_tetra = state.active_view == EditorView::Tetra;
+        for mut vis in &mut tetra_query {
+            *vis = if is_tetra { Visibility::Visible } else { Visibility::Hidden };
+        }
+    }
 }
 
 fn main() {
@@ -49,6 +67,8 @@ fn main() {
             // 四面体モード (Code tab)
             manage_tetra_chunks.run_if(is_tetra_mode),
             process_tetra_chunk_tasks.run_if(is_tetra_mode),
+            // 表示切替
+            toggle_chunk_visibility,
         ))
         .run();
 }

@@ -78,7 +78,7 @@ pub fn manage_tetra_chunks(
         manager.loading_chunks.insert(pos);
         let task = pool.spawn(async move {
             let chunk = TetraChunk::new_hilly_terrain(pos.0, pos.1, pos.2);
-            let mesh = tetra_meshing::generate_tetra_mesh(&chunk, lod);
+            let mesh = tetra_meshing::generate_tetra_mesh(pos, &chunk, lod);
             Some((pos, mesh, lod))
         });
         commands.spawn(TetraChunkTask { pos, task });
@@ -105,11 +105,7 @@ pub fn process_tetra_chunk_tasks(
                 let entity = commands.spawn((
                     Mesh3d(meshes.add(mesh)),
                     MeshMaterial3d(voxel_material.0.clone()),
-                    Transform::from_xyz(
-                        pos.0 as f32 * チャンクのワールドサイズ,
-                        pos.1 as f32 * チャンクのワールドサイズ,
-                        pos.2 as f32 * チャンクのワールドサイズ,
-                    ),
+                    Transform::from_xyz(0.0, 0.0, 0.0), // メッシュ自体がワールド座標で生成されている
                     TetraChunkMarker,
                 )).id();
 

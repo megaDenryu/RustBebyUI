@@ -64,6 +64,9 @@ fn ストーリー初期化(
     let mut カレンダー = ストーリーエンジン::カレンダーストア::default();
     サンプルストーリー::カレンダー初期化(&mut カレンダー);
 
+    let mut エリア = ストーリーエンジン::エリアストア::default();
+    サンプルストーリー::エリア初期化(&mut エリア);
+
     let mut エンジン = ストーリーエンジン::ストーリーエンジン::default();
     エンジン.イベント群登録(サンプルストーリー::第一章イベント群());
 
@@ -73,6 +76,12 @@ fn ストーリー初期化(
     commands.insert_resource(ストーリーエンジン::メッセージストア::default());
     commands.insert_resource(カレンダー);
     commands.insert_resource(ストーリーエンジン::通知ストア::default());
+    commands.insert_resource(ストーリーエンジン::クエストストア::default());
+    commands.insert_resource(ストーリーエンジン::人物ストア::default());
+    commands.insert_resource(ストーリーエンジン::タイムラインストア::default());
+    commands.insert_resource(エリア);
+    commands.insert_resource(ストーリーエンジン::選択肢ストア::default());
+    commands.insert_resource(ストーリーエンジン::天候ストア::default());
     commands.insert_resource(エンジン);
 }
 
@@ -94,29 +103,34 @@ fn main() {
             UI設定::UI初期化,
             ストーリー初期化,
         ))
-        // 更新ループ
+        // 更新ループ: コア
         .add_systems(Update, (
             UI設定::ボタン操作処理,
             UI設定::UI状態更新,
             カメラ制御::カメラ操作処理,
             UI設定::FPS更新,
-            // 立方体モード
             チャンク管理::チャンク管理処理.run_if(立方体モードか),
             チャンク管理::チャンクタスク処理.run_if(立方体モードか),
-            // 四面体モード
             四面体チャンク管理::四面体チャンク管理処理.run_if(四面体モードか),
             四面体チャンク管理::四面体チャンクタスク処理.run_if(四面体モードか),
-            // 表示切替
             チャンク表示切替,
-            // ストーリーエンジン
+        ))
+        // 更新ループ: ストーリーエンジン + 操作
+        .add_systems(Update, (
             ストーリーエンジン::ストーリー評価システム,
             ストーリーエンジン::通知更新システム,
-            // UI ↔ ストーリーデータ同期
+            ストーリーエンジン::エリア判定システム,
+            ストーリーエンジン::操作システム,
+        ))
+        // 更新ループ: UI ↔ ストーリーデータ同期
+        .add_systems(Update, (
             UI設定::日付表示更新,
+            UI設定::エリア名表示更新,
             UI設定::カレンダー表示更新,
             UI設定::メッセージ表示更新,
             UI設定::ドキュメント表示更新,
             UI設定::通知表示更新,
+            UI設定::選択肢表示更新,
             UI設定::サイドバー更新,
         ))
         .run();

@@ -57,7 +57,13 @@ pub struct メッセージ内容表示;
 pub struct ドキュメント一覧表示;
 
 #[derive(Component)]
+pub struct エリア名表示;
+
+#[derive(Component)]
 pub struct 通知テキスト;
+
+#[derive(Component)]
+pub struct 選択肢オーバーレイ;
 
 #[derive(Component)]
 pub struct サイドバー手がかり表示;
@@ -103,6 +109,21 @@ pub fn UI初期化(mut commands: Commands) {
             ..default()
         },
         通知テキスト,
+    ));
+
+    // 選択肢オーバーレイ (画面中央)
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(30.0),
+            left: Val::Percent(25.0),
+            width: Val::Percent(50.0),
+            flex_direction: FlexDirection::Column,
+            padding: UiRect::all(Val::Px(16.0)),
+            row_gap: Val::Px(6.0),
+            ..default()
+        },
+        選択肢オーバーレイ,
     ));
 }
 
@@ -277,6 +298,7 @@ fn ステータスバー構築(parent: &mut ChildBuilder) {
         BackgroundColor(サイバーステータス色),
     ))
     .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(Color::WHITE), 日付表示))
+    .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色), エリア名表示))
     .with_child((Text::new("FPS: --"), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色), FPSカウンター));
 }
 
@@ -329,6 +351,19 @@ pub fn UI状態更新(
 // =============================================================================
 // ストーリーデータ → UI 同期システム
 // =============================================================================
+
+/// ステータスバーのエリア名表示を更新
+pub fn エリア名表示更新(
+    エリア: Res<エリアストア>,
+    mut query: Query<&mut Text, With<エリア名表示>>,
+) {
+    if エリア.is_changed() {
+        let 名前 = エリア.現在のエリア.as_deref().unwrap_or("");
+        for mut text in &mut query {
+            text.0 = 名前.to_string();
+        }
+    }
+}
 
 /// ステータスバーの日付表示を更新
 pub fn 日付表示更新(
@@ -531,35 +566,114 @@ pub fn 通知表示更新(
     }
 }
 
-/// サイドバーの手がかり一覧を更新
+/// 選択肢オーバーレイの表示
+pub fn 選択肢表示更新(
+    mut commands: Commands,
+    選択肢: Res<選択肢ストア>,
+    query: Query<(Entity, &選択肢オーバーレイ)>,
+) {
+    if !選択肢.is_changed() { return; }
+
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+
+        if !選択肢.表示中 { continue; }
+
+        commands.entity(entity).with_children(|parent| {
+            // 背景パネル
+            parent.spawn((
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(16.0)),
+                    row_gap: Val::Px(8.0),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba(0.03, 0.05, 0.1, 0.95)),
+                BorderColor(サイバーアクセント色),
+            )).with_children(|panel| {
+                // タイトル
+                panel.spawn((
+                    Text::new(選択肢.タイトル.clone()),
+                    TextFont { font_size: 14.0, ..default() },
+                    TextColor(サイバーアクセント色),
+                ));
+
+                // 選択肢一覧
+                for (i, item) in 選択肢.選択肢群.iter().enumerate() {
+                    let is_selected = i == 選択肢.カーソル位置;
+                    let marker = if is_selected { "▶ " } else { "  " };
+                    let color = if is_selected { サイバーアクセント色 } else { サイバーテキスト色 };
+
+                    panel.spawn((
+                        Text::new(format!("{}{}", marker, item.テキスト)),
+                        TextFont { font_size: 13.0, ..default() },
+                        TextColor(color),
+                    ));
+                }
+
+                // 操作ヒント
+                panel.spawn((
+                    Text::new("[↑↓] 選択  [Enter/F] 決定  [Esc] 戻る"),
+                    TextFont { font_size: 10.0, ..default() },
+                    TextColor(サイバー薄文字色),
+                ));
+            });
+        });
+    }
+}
+
+/// サイドバーの手がかり・クエスト一覧を更新
 pub fn サイドバー更新(
     mut commands: Commands,
     フラグ: Res<フラグストア>,
     ドキュメント: Res<ドキュメントストア>,
     メッセージ: Res<メッセージストア>,
+    クエスト: Res<クエストストア>,
     query: Query<(Entity, &サイドバー手がかり表示)>,
 ) {
-    if !フラグ.is_changed() && !ドキュメント.is_changed() && !メッセージ.is_changed() { return; }
+    if !フラグ.is_changed() && !ドキュメント.is_changed()
+        && !メッセージ.is_changed() && !クエスト.is_changed() { return; }
 
     for (entity, _) in &query {
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
             // 統計
-            let doc_count = ドキュメント.文書群.len();
-            let msg_count = メッセージ.メッセージ群.len();
-
             parent.spawn((
-                Text::new(format!("Documents: {}", doc_count)),
-                TextFont { font_size: 11.0, ..default() },
-                TextColor(サイバー薄文字色),
-            ));
-            parent.spawn((
-                Text::new(format!("Messages: {}", msg_count)),
+                Text::new(format!("Docs: {}  Msg: {}", ドキュメント.文書群.len(), メッセージ.メッセージ群.len())),
                 TextFont { font_size: 11.0, ..default() },
                 TextColor(サイバー薄文字色),
             ));
 
-            // 発見済みフラグを手がかりとして表示
+            // クエスト
+            let active_quests: Vec<_> = クエスト.クエスト群.iter().filter(|q| !q.完了).collect();
+            if !active_quests.is_empty() {
+                parent.spawn((
+                    Text::new("── Quests ──"),
+                    TextFont { font_size: 11.0, ..default() },
+                    TextColor(サイバーアクセント色),
+                ));
+                for q in &active_quests {
+                    parent.spawn((
+                        Text::new(format!("  ◇ {}", q.名前)),
+                        TextFont { font_size: 11.0, ..default() },
+                        TextColor(サイバーテキスト色),
+                    ));
+                }
+            }
+
+            // 完了済みクエスト
+            let done_quests: Vec<_> = クエスト.クエスト群.iter().filter(|q| q.完了).collect();
+            if !done_quests.is_empty() {
+                for q in &done_quests {
+                    parent.spawn((
+                        Text::new(format!("  ◆ {} ✓", q.名前)),
+                        TextFont { font_size: 11.0, ..default() },
+                        TextColor(サイバー薄文字色),
+                    ));
+                }
+            }
+
+            // 手がかり
             parent.spawn((
                 Text::new("── Clues ──"),
                 TextFont { font_size: 11.0, ..default() },
@@ -572,20 +686,20 @@ pub fn サイドバー更新(
                 .collect();
             フラグ一覧.sort();
 
-            for 名前 in &フラグ一覧 {
-                parent.spawn((
-                    Text::new(format!("  * {}", 名前)),
-                    TextFont { font_size: 11.0, ..default() },
-                    TextColor(サイバーテキスト色),
-                ));
-            }
-
             if フラグ一覧.is_empty() {
                 parent.spawn((
                     Text::new("  (none yet)"),
                     TextFont { font_size: 11.0, ..default() },
                     TextColor(サイバー薄文字色),
                 ));
+            } else {
+                for 名前 in &フラグ一覧 {
+                    parent.spawn((
+                        Text::new(format!("  * {}", 名前)),
+                        TextFont { font_size: 11.0, ..default() },
+                        TextColor(サイバーテキスト色),
+                    ));
+                }
             }
         });
     }

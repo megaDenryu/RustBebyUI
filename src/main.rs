@@ -20,6 +20,10 @@ mod 四面体世界;
 mod 四面体メッシュ生成;
 #[path = "四面体チャンク管理.rs"]
 mod 四面体チャンク管理;
+#[path = "ストーリーエンジン.rs"]
+mod ストーリーエンジン;
+#[path = "サンプルストーリー.rs"]
+mod サンプルストーリー;
 
 use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -52,6 +56,26 @@ fn チャンク表示切替(
     }
 }
 
+/// ストーリーエンジンの初期化 (Startupシステム)
+fn ストーリー初期化(
+    mut commands: Commands,
+) {
+    // リソース群を初期化
+    let mut カレンダー = ストーリーエンジン::カレンダーストア::default();
+    サンプルストーリー::カレンダー初期化(&mut カレンダー);
+
+    let mut エンジン = ストーリーエンジン::ストーリーエンジン::default();
+    エンジン.イベント群登録(サンプルストーリー::第一章イベント群());
+
+    commands.insert_resource(ストーリーエンジン::ゲーム時間::default());
+    commands.insert_resource(ストーリーエンジン::フラグストア::default());
+    commands.insert_resource(ストーリーエンジン::ドキュメントストア::default());
+    commands.insert_resource(ストーリーエンジン::メッセージストア::default());
+    commands.insert_resource(カレンダー);
+    commands.insert_resource(ストーリーエンジン::通知ストア::default());
+    commands.insert_resource(エンジン);
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -65,7 +89,11 @@ fn main() {
         }))
         .add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()))
         // 起動時
-        .add_systems(Startup, (シーン初期化::シーン初期化, UI設定::UI初期化))
+        .add_systems(Startup, (
+            シーン初期化::シーン初期化,
+            UI設定::UI初期化,
+            ストーリー初期化,
+        ))
         // 更新ループ
         .add_systems(Update, (
             UI設定::ボタン操作処理,
@@ -80,6 +108,9 @@ fn main() {
             四面体チャンク管理::四面体チャンクタスク処理.run_if(四面体モードか),
             // 表示切替
             チャンク表示切替,
+            // ストーリーエンジン
+            ストーリーエンジン::ストーリー評価システム,
+            ストーリーエンジン::通知更新システム,
         ))
         .run();
 }

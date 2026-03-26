@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bevy = { version = "0.15", features = ["dynamic_linking"] }
 futures-lite = "2.3"
-noise = "0.9"
 
 # Enable high optimizations for dependencies (very important for Bevy)
 [profile.dev]

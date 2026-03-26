@@ -1,15 +1,26 @@
 // src/四面体チャンク管理.rs
-// 四面体ワールドのチャンク管理システム
 
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use crate::ボクセル世界::{描画距離, チャンクのワールドサイズ};
-use crate::四面体世界::四面体チャンク;
 use crate::四面体メッシュ生成;
+use crate::地形生成;
 use crate::カメラ制御::カメラ操作;
 use crate::チャンク管理::ボクセル素材;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
+
+// LOD閾値 (チャンク管理と同じ値)
+const LOD1距離2乗: i32 = 6 * 6;
+const LOD2距離2乗: i32 = 12 * 12;
+const 毎フレーム最大タスク数: usize = 2;
+const チャンク更新移動閾値: f32 = 0.5;
+
+fn LOD決定(距離2乗: i32) -> u32 {
+    if 距離2乗 <= LOD1距離2乗 { 1 }
+    else if 距離2乗 <= LOD2距離2乗 { 2 }
+    else { 4 }
+}
 
 #[derive(Resource)]
 pub struct 四面体チャンク管理者 {
@@ -36,22 +47,15 @@ pub fn 四面体チャンク管理処理(
     let cam_p = cam_transform.translation;
 
     if let Some(lp) = *last_pos {
-        if cam_p.distance(lp) < 0.5 { return; }
+        if cam_p.distance(lp) < チャンク更新移動閾値 { return; }
     }
     *last_pos = Some(cam_p);
 
     let center_cx = (cam_p.x / チャンクのワールドサイズ).floor() as i32;
     let center_cz = (cam_p.z / チャンクのワールドサイズ).floor() as i32;
 
-    let mut needed = HashSet::new();
-    for dx in -描画距離..=描画距離 {
-        for dz in -描画距離..=描画距離 {
-            if dx * dx + dz * dz > 描画距離 * 描画距離 { continue; }
-            needed.insert((center_cx + dx, 0, center_cz + dz));
-        }
-    }
+    let needed = 必要チャンク集合(center_cx, center_cz);
 
-    // アンロード
     manager.読込済み.retain(|&pos, &mut (entity, _)| {
         if !needed.contains(&pos) {
             commands.entity(entity).despawn_recursive();
@@ -61,23 +65,21 @@ pub fn 四面体チャンク管理処理(
     });
     manager.読込中.retain(|pos| needed.contains(pos));
 
-    // タスク生成
-    let mut tasks = Vec::new();
-    for &pos in &needed {
-        if manager.読込中.contains(&pos) || manager.読込済み.contains_key(&pos) { continue; }
-        let dx = pos.0 - center_cx;
-        let dz = pos.2 - center_cz;
-        let dist_sq = dx * dx + dz * dz;
-        let lod = if dist_sq <= 6*6 { 1 } else if dist_sq <= 12*12 { 2 } else { 4 };
-        tasks.push((pos, dist_sq, lod));
-    }
+    let mut tasks: Vec<_> = needed.iter()
+        .filter(|pos| !manager.読込中.contains(pos) && !manager.読込済み.contains_key(pos))
+        .map(|&pos| {
+            let dist_sq = (pos.0 - center_cx).pow(2) + (pos.2 - center_cz).pow(2);
+            (pos, dist_sq, LOD決定(dist_sq))
+        })
+        .collect();
+
     tasks.sort_by_key(|t| t.1);
 
     let pool = AsyncComputeTaskPool::get();
-    for (pos, _, lod) in tasks.into_iter().take(2) {
+    for (pos, _, lod) in tasks.into_iter().take(毎フレーム最大タスク数) {
         manager.読込中.insert(pos);
         let task = pool.spawn(async move {
-            let chunk = 四面体チャンク::丘陵地形生成(pos.0, pos.1, pos.2);
+            let chunk = 地形生成::四面体チャンク地形生成(pos.0, pos.1, pos.2);
             let mesh = 四面体メッシュ生成::四面体メッシュ生成(pos, &chunk, lod);
             Some((pos, mesh, lod))
         });
@@ -90,7 +92,7 @@ pub fn 四面体チャンクタスク処理(
     mut tasks: Query<(Entity, &mut 四面体チャンクタスク)>,
     mut manager: ResMut<四面体チャンク管理者>,
     mut meshes: ResMut<Assets<Mesh>>,
-    voxel_material: Res<ボクセル素材>,
+    material: Res<ボクセル素材>,
 ) {
     for (task_entity, mut chunk_task) in &mut tasks {
         if let Some(result) = future::block_on(future::poll_once(&mut chunk_task.タスク)) {
@@ -104,8 +106,8 @@ pub fn 四面体チャンクタスク処理(
 
                 let entity = commands.spawn((
                     Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(voxel_material.0.clone()),
-                    Transform::from_xyz(0.0, 0.0, 0.0), // メッシュ自体がワールド座標で生成されている
+                    MeshMaterial3d(material.0.clone()),
+                    Transform::IDENTITY, // メッシュ自体がワールド座標
                     四面体チャンクマーカー,
                 )).id();
 
@@ -115,4 +117,15 @@ pub fn 四面体チャンクタスク処理(
             }
         }
     }
+}
+
+fn 必要チャンク集合(center_cx: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
+    let mut set = HashSet::new();
+    for dx in -描画距離..=描画距離 {
+        for dz in -描画距離..=描画距離 {
+            if dx * dx + dz * dz > 描画距離 * 描画距離 { continue; }
+            set.insert((center_cx + dx, 0, center_cz + dz));
+        }
+    }
+    set
 }

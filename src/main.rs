@@ -1,5 +1,7 @@
 #[path = "ボクセル世界.rs"]
 mod ボクセル世界;
+#[path = "地形生成.rs"]
+mod 地形生成;
 #[path = "メッシュ生成.rs"]
 mod メッシュ生成;
 #[path = "カメラ制御.rs"]
@@ -8,6 +10,8 @@ mod カメラ制御;
 mod チャンク管理;
 #[path = "衝突判定.rs"]
 mod 衝突判定;
+#[path = "シーン初期化.rs"]
+mod シーン初期化;
 #[path = "UI設定.rs"]
 mod UI設定;
 #[path = "四面体世界.rs"]
@@ -19,10 +23,9 @@ mod 四面体チャンク管理;
 
 use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use UI設定::{UI初期化, ボタン操作処理, UI状態更新, FPS更新, アプリ状態, エディタビュー};
-use カメラ制御::カメラ操作処理;
-use チャンク管理::{チャンク管理処理, チャンクタスク処理, チャンク描画データ};
-use 四面体チャンク管理::{四面体チャンク管理処理, 四面体チャンクタスク処理, 四面体チャンクマーカー};
+use UI設定::{アプリ状態, エディタビュー};
+use チャンク管理::チャンク描画データ;
+use 四面体チャンク管理::四面体チャンクマーカー;
 
 fn 立方体モードか(state: Res<アプリ状態>) -> bool {
     state.現在のビュー == エディタビュー::シーン
@@ -42,7 +45,6 @@ fn チャンク表示切替(
         for mut vis in &mut cube_query {
             *vis = if is_cube { Visibility::Visible } else { Visibility::Hidden };
         }
-
         let is_tetra = state.現在のビュー == エディタビュー::四面体;
         for mut vis in &mut tetra_query {
             *vis = if is_tetra { Visibility::Visible } else { Visibility::Hidden };
@@ -63,19 +65,19 @@ fn main() {
         }))
         .add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()))
         // 起動時
-        .add_systems(Startup, UI初期化)
+        .add_systems(Startup, (シーン初期化::シーン初期化, UI設定::UI初期化))
         // 更新ループ
         .add_systems(Update, (
-            ボタン操作処理,
-            UI状態更新,
-            カメラ操作処理,
-            FPS更新,
-            // 立方体モード (Scene tab)
-            チャンク管理処理.run_if(立方体モードか),
-            チャンクタスク処理.run_if(立方体モードか),
-            // 四面体モード (Tetra tab)
-            四面体チャンク管理処理.run_if(四面体モードか),
-            四面体チャンクタスク処理.run_if(四面体モードか),
+            UI設定::ボタン操作処理,
+            UI設定::UI状態更新,
+            カメラ制御::カメラ操作処理,
+            UI設定::FPS更新,
+            // 立方体モード
+            チャンク管理::チャンク管理処理.run_if(立方体モードか),
+            チャンク管理::チャンクタスク処理.run_if(立方体モードか),
+            // 四面体モード
+            四面体チャンク管理::四面体チャンク管理処理.run_if(四面体モードか),
+            四面体チャンク管理::四面体チャンクタスク処理.run_if(四面体モードか),
             // 表示切替
             チャンク表示切替,
         ))

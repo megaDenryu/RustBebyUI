@@ -7,22 +7,22 @@ use bevy::render::render_asset::RenderAssetUsages;
 use crate::ボクセル世界::{ボクセル種別, チャンク解像度};
 use crate::四面体世界::{四面体チャンク, 四面体頂点_偶数, 四面体頂点_奇数, 隣接四面体取得, 歪み頂点取得};
 
-/// 四面体の色（立方体と同じ配色）
+/// 四面体の色
 fn 四面体色(kind: ボクセル種別) -> [f32; 4] {
     match kind {
-        ボクセル種別::草 => [0.35, 0.75, 0.35, 1.0],
+        ボクセル種別::草  => [0.35, 0.75, 0.35, 1.0],
         ボクセル種別::土  => [0.55, 0.38, 0.2, 1.0],
-        ボクセル種別::石 => [0.65, 0.65, 0.65, 1.0],
-        ボクセル種別::水 => [0.2, 0.5, 0.9, 0.6],
-        ボクセル種別::道路  => [0.3, 0.3, 0.35, 1.0],
-        ボクセル種別::橋 => [0.5, 0.3, 0.1, 1.0],
+        ボクセル種別::石  => [0.65, 0.65, 0.65, 1.0],
+        ボクセル種別::水  => [0.2, 0.5, 0.9, 0.6],
+        ボクセル種別::道路 => [0.3, 0.3, 0.35, 1.0],
+        ボクセル種別::橋  => [0.5, 0.3, 0.1, 1.0],
         ボクセル種別::岩盤 => [0.12, 0.1, 0.1, 1.0],
-        ボクセル種別::虹 => [0.8, 0.4, 0.9, 1.0],
+        ボクセル種別::虹  => [0.8, 0.4, 0.9, 1.0],
         _ => [1.0, 1.0, 1.0, 1.0],
     }
 }
 
-/// 四面体の4面それぞれについて、隣接する四面体が空気かどうかを判定
+/// 四面体の面が隣接する四面体によって隠されているかを判定
 fn 面は見えるか(chunk: &四面体チャンク, x: usize, y: usize, z: usize, t: usize, face: usize) -> bool {
     let is_even = (x + y + z) % 2 == 0;
     let (dx, dy, dz, nt) = 隣接四面体取得(is_even, t, face);
@@ -31,17 +31,28 @@ fn 面は見えるか(chunk: &四面体チャンク, x: usize, y: usize, z: usiz
     let ny = y as i32 + dy;
     let nz = z as i32 + dz;
 
-    // チャンク境界外は常に描画する
-    if nx < 0 || ny < 0 || nz < 0 || nx >= チャンク解像度 as i32 || ny >= チャンク解像度 as i32 || nz >= チャンク解像度 as i32 {
+    // チャンク境界外は常に描画
+    if nx < 0 || ny < 0 || nz < 0
+        || nx >= チャンク解像度 as i32 || ny >= チャンク解像度 as i32 || nz >= チャンク解像度 as i32
+    {
         return true;
     }
 
     let nk = chunk.取得(nx as usize, ny as usize, nz as usize, nt);
-    if nk != ボクセル種別::空気 && nk != ボクセル種別::水 {
-        return false; // 隣接がソリッドなら非表示
-    }
-    true
+    nk == ボクセル種別::空気 || nk == ボクセル種別::水
 }
+
+// 面定義: 四面体の4つの三角形面
+// fi=0: [0,2,1] missing tv[3]
+// fi=1: [0,1,3] missing tv[2]
+// fi=2: [0,3,2] missing tv[1]
+// fi=3: [1,2,3] missing tv[0]
+const 面定義: [[usize; 3]; 4] = [
+    [0, 2, 1],
+    [0, 1, 3],
+    [0, 3, 2],
+    [1, 2, 3],
+];
 
 /// 四面体チャンクからメッシュを生成
 pub fn 四面体メッシュ生成(pos: (i32, i32, i32), chunk: &四面体チャンク, lod: u32) -> Mesh {
@@ -85,16 +96,10 @@ pub fn 四面体メッシュ生成(pos: (i32, i32, i32), chunk: &四面体チャ
                     let color = 四面体色(kind);
                     let tv = tetra_defs[t];
 
-                    let faces: [[usize; 3]; 4] = [
-                        [0, 2, 1], // 面0
-                        [0, 1, 3], // 面1
-                        [0, 3, 2], // 面2
-                        [1, 2, 3], // 面3
-                    ];
-
-                    for (fi, face) in faces.iter().enumerate() {
+                    for (fi, face) in 面定義.iter().enumerate() {
                         if !面は見えるか(chunk, x, y, z, t, fi) { continue; }
 
+                        // 4番目の頂点(面の反対側)を使って法線の向きを決める
                         let missing_idx = 6 - (face[0] + face[1] + face[2]);
                         let p3 = cell_verts[tv[missing_idx]];
 
@@ -104,7 +109,7 @@ pub fn 四面体メッシュ生成(pos: (i32, i32, i32), chunk: &四面体チャ
 
                         let mut normal = (p1 - p0).cross(p2 - p0);
                         if normal.dot(p3 - p0) > 0.0 {
-                            // 法線が内側に向いているため表裏をひっくり返す
+                            // 法線が内側なら表裏反転
                             std::mem::swap(&mut p1, &mut p2);
                             normal = (p1 - p0).cross(p2 - p0);
                         }
@@ -120,9 +125,7 @@ pub fn 四面体メッシュ生成(pos: (i32, i32, i32), chunk: &四面体チャ
                             colors.push(color);
                         }
 
-                        indices.push(vert_count);
-                        indices.push(vert_count + 1);
-                        indices.push(vert_count + 2);
+                        indices.extend_from_slice(&[vert_count, vert_count + 1, vert_count + 2]);
                         vert_count += 3;
                     }
                 }

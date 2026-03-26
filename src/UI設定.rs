@@ -28,6 +28,10 @@ pub enum エディタビュー {
     カレンダー,
     メッセージ,
     ドキュメント,
+    マップ,
+    人物,
+    タイムライン,
+    インベントリ,
 }
 
 #[derive(Resource)]
@@ -64,6 +68,18 @@ pub struct 通知テキスト;
 
 #[derive(Component)]
 pub struct 選択肢オーバーレイ;
+
+#[derive(Component)]
+pub struct マップ内容表示;
+
+#[derive(Component)]
+pub struct 人物内容表示;
+
+#[derive(Component)]
+pub struct タイムライン内容表示;
+
+#[derive(Component)]
+pub struct インベントリ内容表示;
 
 #[derive(Component)]
 pub struct サイドバー手がかり表示;
@@ -190,12 +206,16 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                 ("Calendar",  エディタビュー::カレンダー),
                 ("Messages",  エディタビュー::メッセージ),
                 ("Documents", エディタビュー::ドキュメント),
+                ("Map",       エディタビュー::マップ),
+                ("Profiles",  エディタビュー::人物),
+                ("Timeline",  エディタビュー::タイムライン),
+                ("Inventory", エディタビュー::インベントリ),
             ];
             for (name, view) in タブ定義 {
                 tabs.spawn((
                     Button,
                     Node {
-                        width: Val::Px(120.0), height: Val::Percent(100.0),
+                        width: Val::Px(95.0), height: Val::Percent(100.0),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         border: UiRect::right(Val::Px(1.0)),
@@ -272,7 +292,46 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                     ドキュメント一覧表示,
                 ));
             });
+
+            // マップビュー
+            情報ビュー構築(container, エディタビュー::マップ, "MAP", マップ内容表示);
+
+            // 人物ビュー
+            情報ビュー構築(container, エディタビュー::人物, "PROFILES", 人物内容表示);
+
+            // タイムラインビュー
+            情報ビュー構築(container, エディタビュー::タイムライン, "TIMELINE", タイムライン内容表示);
+
+            // インベントリビュー
+            情報ビュー構築(container, エディタビュー::インベントリ, "INVENTORY", インベントリ内容表示);
         });
+    });
+}
+
+/// 汎用的な情報ウィンドウの構築ヘルパー
+fn 情報ビュー構築(parent: &mut ChildBuilder, view: エディタビュー, title: &str, marker: impl Component) {
+    parent.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            width: Val::Percent(100.0), height: Val::Percent(100.0),
+            padding: UiRect::all(Val::Px(24.0)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(8.0),
+            ..default()
+        },
+        BackgroundColor(サイバー背景色),
+        ビューコンテナ(view),
+    )).with_children(|area| {
+        area.spawn((Text::new(title), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
+        area.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(6.0),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            marker,
+        ));
     });
 }
 
@@ -697,6 +756,175 @@ pub fn サイドバー更新(
                     parent.spawn((
                         Text::new(format!("  * {}", 名前)),
                         TextFont { font_size: 11.0, ..default() },
+                        TextColor(サイバーテキスト色),
+                    ));
+                }
+            }
+        });
+    }
+}
+
+// =============================================================================
+// Phase 2 ウィンドウ表示更新
+// =============================================================================
+
+/// マップ: エリア一覧と現在位置
+pub fn マップ表示更新(
+    mut commands: Commands,
+    エリア: Res<エリアストア>,
+    query: Query<(Entity, &マップ内容表示)>,
+) {
+    if !エリア.is_changed() { return; }
+
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+        commands.entity(entity).with_children(|parent| {
+            if エリア.エリア群.is_empty() {
+                parent.spawn((Text::new("未探索"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色)));
+                return;
+            }
+
+            parent.spawn((
+                Text::new("── 発見済みエリア ──"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(サイバーアクセント色),
+            ));
+
+            for area in &エリア.エリア群 {
+                let is_current = エリア.現在のエリア.as_deref() == Some(area.名前.as_str());
+                let marker = if is_current { "▶ " } else { "  " };
+                let color = if is_current { サイバーアクセント色 } else { サイバーテキスト色 };
+
+                parent.spawn((
+                    Text::new(format!("{}{} ({:.0}, {:.0}, {:.0})", marker, area.名前, area.座標.x, area.座標.y, area.座標.z)),
+                    TextFont { font_size: 12.0, ..default() },
+                    TextColor(color),
+                ));
+            }
+
+            // 現在位置の注記
+            if let Some(ref 名前) = エリア.現在のエリア {
+                parent.spawn((
+                    Text::new(format!("\n現在地: {}", 名前)),
+                    TextFont { font_size: 13.0, ..default() },
+                    TextColor(サイバーアクセント色),
+                ));
+            } else {
+                parent.spawn((
+                    Text::new("\n現在地: (エリア外)"),
+                    TextFont { font_size: 12.0, ..default() },
+                    TextColor(サイバー薄文字色),
+                ));
+            }
+        });
+    }
+}
+
+/// 人物ファイル
+pub fn 人物表示更新(
+    mut commands: Commands,
+    人物: Res<人物ストア>,
+    query: Query<(Entity, &人物内容表示)>,
+) {
+    if !人物.is_changed() { return; }
+
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+        commands.entity(entity).with_children(|parent| {
+            if 人物.人物群.is_empty() {
+                parent.spawn((Text::new("まだ誰にも会っていない"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色)));
+                return;
+            }
+
+            for (i, p) in 人物.人物群.iter().enumerate() {
+                // 人物名
+                parent.spawn((
+                    Text::new(format!("#{} {}", i + 1, p.名前)),
+                    TextFont { font_size: 14.0, ..default() },
+                    TextColor(サイバーアクセント色),
+                ));
+                // 説明
+                parent.spawn((
+                    Text::new(p.説明.clone()),
+                    TextFont { font_size: 12.0, ..default() },
+                    TextColor(サイバーテキスト色),
+                ));
+                // 区切り
+                parent.spawn((
+                    Text::new(""),
+                    TextFont { font_size: 4.0, ..default() },
+                    TextColor(サイバーボーダー色),
+                ));
+            }
+        });
+    }
+}
+
+/// タイムライン: 起きた出来事の時系列記録
+pub fn タイムライン表示更新(
+    mut commands: Commands,
+    タイムライン: Res<タイムラインストア>,
+    query: Query<(Entity, &タイムライン内容表示)>,
+) {
+    if !タイムライン.is_changed() { return; }
+
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+        commands.entity(entity).with_children(|parent| {
+            if タイムライン.エントリ群.is_empty() {
+                parent.spawn((Text::new("まだ何も起きていない"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色)));
+                return;
+            }
+
+            // 新しい順に表示
+            for entry in タイムライン.エントリ群.iter().rev() {
+                let 帯名 = match entry.時間帯 {
+                    時間帯::朝 => "朝",
+                    時間帯::昼 => "昼",
+                    時間帯::夕 => "夕",
+                    時間帯::夜 => "夜",
+                };
+                parent.spawn((
+                    Text::new(format!("[{} {}] {}", entry.日付, 帯名, entry.テキスト)),
+                    TextFont { font_size: 11.0, ..default() },
+                    TextColor(サイバーテキスト色),
+                ));
+            }
+        });
+    }
+}
+
+/// インベントリ: 所持品一覧 (将来アイテムシステムが入るまでの仮)
+pub fn インベントリ表示更新(
+    mut commands: Commands,
+    フラグ: Res<フラグストア>,
+    query: Query<(Entity, &インベントリ内容表示)>,
+) {
+    if !フラグ.is_changed() { return; }
+
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+        commands.entity(entity).with_children(|parent| {
+            parent.spawn((
+                Text::new("── 所持品 ──"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(サイバーアクセント色),
+            ));
+
+            // フラグの中から「アイテム_」プレフィックスのものを所持品として表示
+            let mut items: Vec<_> = フラグ.フラグ群.iter()
+                .filter(|(k, v)| k.starts_with("アイテム_") && **v)
+                .map(|(k, _)| k.strip_prefix("アイテム_").unwrap_or(k).to_string())
+                .collect();
+            items.sort();
+
+            if items.is_empty() {
+                parent.spawn((Text::new("  何も持っていない"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色)));
+            } else {
+                for item in &items {
+                    parent.spawn((
+                        Text::new(format!("  ◆ {}", item)),
+                        TextFont { font_size: 12.0, ..default() },
                         TextColor(サイバーテキスト色),
                     ));
                 }

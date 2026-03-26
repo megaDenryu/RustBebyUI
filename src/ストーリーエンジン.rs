@@ -622,6 +622,10 @@ pub fn 効果適用(
                     "Calendar" | "カレンダー" => Some(エディタビュー::カレンダー),
                     "Messages" | "メッセージ" => Some(エディタビュー::メッセージ),
                     "Documents" | "ドキュメント" => Some(エディタビュー::ドキュメント),
+                    "Map" | "マップ" => Some(エディタビュー::マップ),
+                    "Profiles" | "人物" => Some(エディタビュー::人物),
+                    "Timeline" | "タイムライン" => Some(エディタビュー::タイムライン),
+                    "Inventory" | "インベントリ" => Some(エディタビュー::インベントリ),
                     _ => None,
                 };
                 if let Some(v) = ビュー { アプリ状態.現在のビュー = v; }
@@ -749,4 +753,8 @@ pub fn 操作システム(
     if keys.just_pressed(KeyCode::Digit3) { アプリ状態.現在のビュー = エディタビュー::カレンダー; }
     if keys.just_pressed(KeyCode::Digit4) { アプリ状態.現在のビュー = エディタビュー::メッセージ; }
     if keys.just_pressed(KeyCode::Digit5) { アプリ状態.現在のビュー = エディタビュー::ドキュメント; }
+    if keys.just_pressed(KeyCode::Digit6) { アプリ状態.現在のビュー = エディタビュー::マップ; }
+    if keys.just_pressed(KeyCode::Digit7) { アプリ状態.現在のビュー = エディタビュー::人物; }
+    if keys.just_pressed(KeyCode::Digit8) { アプリ状態.現在のビュー = エディタビュー::タイムライン; }
+    if keys.just_pressed(KeyCode::Digit9) { アプリ状態.現在のビュー = エディタビュー::インベントリ; }
 }

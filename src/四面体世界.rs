@@ -1,18 +1,19 @@
-// src/tetra_world.rs
-// Layer 1: 四面体ボクセルのドメインロジック
+// src/四面体世界.rs
+// レイヤー1: 四面体ボクセルのドメインロジック
 // 各立方体セルを5つの四面体に分割し、空間を完全充填する。
 
 use bevy::prelude::Vec3;
-use crate::voxel_world::{ボクセル, ボクセル種別, チャンク解像度, ボクセルスケール, チャンクのワールドサイズ, 水面高さ, 岩盤の高さ};
+use crate::ボクセル世界::{ボクセル, ボクセル種別, チャンク解像度, ボクセルスケール, チャンクのワールドサイズ, 水面高さ, 岩盤の高さ};
 
 /// 四面体チャンク: 各セルが5つの四面体を持つ
 #[derive(Clone)]
-pub struct TetraChunk {
+pub struct 四面体チャンク {
     /// 各セル(x,y,z)に5つの四面体の種別を格納
     /// index = (x + y*S + z*S*S) * 5 + tetra_id (0..5)
-    pub tetras: Vec<ボクセル種別>,
+    pub 四面体群: Vec<ボクセル種別>,
 }
-pub fn get_warped_vertex(gx: i32, gy: i32, gz: i32) -> Vec3 {
+
+pub fn 歪み頂点取得(gx: i32, gy: i32, gz: i32) -> Vec3 {
     let base = Vec3::new(gx as f32, gy as f32, gz as f32) * ボクセルスケール;
     let nx = (gx as f32 * 0.312 + gy as f32 * 0.123).sin() * (gz as f32 * 0.221).cos();
     let ny = (gy as f32 * 0.281 + gz as f32 * 0.145).sin() * (gx as f32 * 0.252).cos();
@@ -20,37 +21,36 @@ pub fn get_warped_vertex(gx: i32, gy: i32, gz: i32) -> Vec3 {
     base + Vec3::new(nx, ny, nz) * ボクセルスケール * 0.5
 }
 
-impl TetraChunk {
-    pub fn new_empty() -> Self {
+impl 四面体チャンク {
+    pub fn 空で生成() -> Self {
         Self {
-            tetras: vec![ボクセル種別::空気; チャンク解像度 * チャンク解像度 * チャンク解像度 * 5],
+            四面体群: vec![ボクセル種別::空気; チャンク解像度 * チャンク解像度 * チャンク解像度 * 5],
         }
     }
 
-    fn idx(x: usize, y: usize, z: usize, t: usize) -> usize {
+    fn 添字(x: usize, y: usize, z: usize, t: usize) -> usize {
         (x + y * チャンク解像度 + z * チャンク解像度 * チャンク解像度) * 5 + t
     }
 
-    pub fn get(&self, x: usize, y: usize, z: usize, t: usize) -> ボクセル種別 {
+    pub fn 取得(&self, x: usize, y: usize, z: usize, t: usize) -> ボクセル種別 {
         if x < チャンク解像度 && y < チャンク解像度 && z < チャンク解像度 && t < 5 {
-            self.tetras[Self::idx(x, y, z, t)]
+            self.四面体群[Self::添字(x, y, z, t)]
         } else {
             ボクセル種別::空気
         }
     }
 
-    pub fn set(&mut self, x: usize, y: usize, z: usize, t: usize, kind: ボクセル種別) {
+    pub fn 設定(&mut self, x: usize, y: usize, z: usize, t: usize, kind: ボクセル種別) {
         if x < チャンク解像度 && y < チャンク解像度 && z < チャンク解像度 && t < 5 {
-            let idx = Self::idx(x, y, z, t);
-            self.tetras[idx] = kind;
+            let idx = Self::添字(x, y, z, t);
+            self.四面体群[idx] = kind;
         }
     }
 
-
     /// 地形生成: 立方体ワールドと同じノイズ関数を使い、各四面体の種別を決定
-    pub fn new_hilly_terrain(cx: i32, cy: i32, cz: i32) -> Self {
-        let mut chunk = Self::new_empty();
-        
+    pub fn 丘陵地形生成(cx: i32, cy: i32, cz: i32) -> Self {
+        let mut chunk = Self::空で生成();
+
         let ofs_x = cx * チャンク解像度 as i32;
         let ofs_y = cy * チャンク解像度 as i32;
         let ofs_z = cz * チャンク解像度 as i32;
@@ -63,30 +63,28 @@ impl TetraChunk {
                     let gz = ofs_z + z as i32;
 
                     let cell_verts = [
-                        get_warped_vertex(gx,   gy,   gz),
-                        get_warped_vertex(gx+1, gy,   gz),
-                        get_warped_vertex(gx+1, gy+1, gz),
-                        get_warped_vertex(gx,   gy+1, gz),
-                        get_warped_vertex(gx,   gy,   gz+1),
-                        get_warped_vertex(gx+1, gy,   gz+1),
-                        get_warped_vertex(gx+1, gy+1, gz+1),
-                        get_warped_vertex(gx,   gy+1, gz+1),
+                        歪み頂点取得(gx,   gy,   gz),
+                        歪み頂点取得(gx+1, gy,   gz),
+                        歪み頂点取得(gx+1, gy+1, gz),
+                        歪み頂点取得(gx,   gy+1, gz),
+                        歪み頂点取得(gx,   gy,   gz+1),
+                        歪み頂点取得(gx+1, gy,   gz+1),
+                        歪み頂点取得(gx+1, gy+1, gz+1),
+                        歪み頂点取得(gx,   gy+1, gz+1),
                     ];
 
                     let is_even = (x + y + z) % 2 == 0;
-                    let tetra_defs = if is_even { TETRA_VERTICES_EVEN } else { TETRA_VERTICES_ODD };
+                    let tetra_defs = if is_even { 四面体頂点_偶数 } else { 四面体頂点_奇数 };
 
                     // 各四面体の中心位置に基づいて種別を決定
                     for t in 0..5 {
                         let tv = tetra_defs[t];
-                        // 4頂点の平均をこの四面体の「中心」とする
                         let mut center = bevy::math::Vec3::ZERO;
                         for &vi in &tv {
                             center += cell_verts[vi];
                         }
                         center /= 4.0;
 
-                        // 地形ノイズをこの中心座標で計算
                         let wx = center.x;
                         let wy = center.y;
                         let wz = center.z;
@@ -98,8 +96,8 @@ impl TetraChunk {
                         let mountain = ((wx * 0.03).sin() * (wz * 0.04).cos()).abs() * 12.0;
                         let ground_y = 6.0 + h_base + h_hills + h_detail + h_micro + mountain;
 
-                        let kind = determine_tetra_type(wx, wy, wz, ground_y);
-                        chunk.set(x, y, z, t, kind);
+                        let kind = 四面体種別判定(wx, wy, wz, ground_y);
+                        chunk.設定(x, y, z, t, kind);
                     }
                 }
             }
@@ -109,7 +107,7 @@ impl TetraChunk {
 }
 
 /// 四面体の種別を地形情報から決定
-fn determine_tetra_type(gx: f32, gy: f32, gz: f32, ground_y: f32) -> ボクセル種別 {
+fn 四面体種別判定(gx: f32, gy: f32, gz: f32, ground_y: f32) -> ボクセル種別 {
     // 岩盤
     if gy <= 岩盤の高さ { return ボクセル種別::岩盤; }
 
@@ -142,25 +140,25 @@ fn determine_tetra_type(gx: f32, gy: f32, gz: f32, ground_y: f32) -> ボクセ�
 ///   0=(0,0,0) 1=(1,0,0) 2=(1,1,0) 3=(0,1,0)
 ///   4=(0,0,1) 5=(1,0,1) 6=(1,1,1) 7=(0,1,1)
 
-pub const TETRA_VERTICES_EVEN: [[usize; 4]; 5] = [
-    [0, 1, 3, 4], // 0: Corner (0,0,0) [bottom-left-front]
-    [1, 2, 3, 6], // 1: Corner (1,1,0) [top-right-front]
-    [1, 4, 5, 6], // 2: Corner (1,0,1) [bottom-right-back]
-    [3, 4, 6, 7], // 3: Corner (0,1,1) [top-left-back]
-    [1, 3, 4, 6], // 4: Center
+pub const 四面体頂点_偶数: [[usize; 4]; 5] = [
+    [0, 1, 3, 4], // 0: 角 (0,0,0)
+    [1, 2, 3, 6], // 1: 角 (1,1,0)
+    [1, 4, 5, 6], // 2: 角 (1,0,1)
+    [3, 4, 6, 7], // 3: 角 (0,1,1)
+    [1, 3, 4, 6], // 4: 中央
 ];
 
-pub const TETRA_VERTICES_ODD: [[usize; 4]; 5] = [
-    [0, 1, 2, 5], // 0: Corner (1,0,0)
-    [0, 2, 3, 7], // 1: Corner (0,1,0)
-    [0, 4, 5, 7], // 2: Corner (0,0,1)
-    [2, 5, 6, 7], // 3: Corner (1,1,1)
-    [0, 2, 5, 7], // 4: Center
+pub const 四面体頂点_奇数: [[usize; 4]; 5] = [
+    [0, 1, 2, 5], // 0: 角 (1,0,0)
+    [0, 2, 3, 7], // 1: 角 (0,1,0)
+    [0, 4, 5, 7], // 2: 角 (0,0,1)
+    [2, 5, 6, 7], // 3: 角 (1,1,1)
+    [0, 2, 5, 7], // 4: 中央
 ];
 
-/// Neighbor Table
+/// 隣接四面体テーブル
 /// (dx, dy, dz, neighbor_t)
-pub fn get_neighbor_tetra(is_even: bool, t: usize, face: usize) -> (i32, i32, i32, usize) {
+pub fn 隣接四面体取得(is_even: bool, t: usize, face: usize) -> (i32, i32, i32, usize) {
     if is_even {
         match t {
             0 => [(0,0,-1, 2), (0,-1,0, 1), (-1,0,0, 0), (0,0,0, 4)][face],
@@ -183,7 +181,7 @@ pub fn get_neighbor_tetra(is_even: bool, t: usize, face: usize) -> (i32, i32, i3
 }
 
 /// セル頂点の相対座標（0.0 or 1.0）
-pub const CELL_CORNERS: [[f32; 3]; 8] = [
+pub const セル頂点座標: [[f32; 3]; 8] = [
     [0.0, 0.0, 0.0], // 0
     [1.0, 0.0, 0.0], // 1
     [1.0, 1.0, 0.0], // 2

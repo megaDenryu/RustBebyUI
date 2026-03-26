@@ -1,5 +1,5 @@
-// src/voxel_world.rs
-// Layer 1: Core Domain Logic
+// src/ボクセル世界.rs
+// レイヤー1: コアドメインロジック
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ボクセル種別 {
@@ -19,7 +19,7 @@ impl ボクセル {
     pub const 橋: Self = Self { 種別: ボクセル種別::橋 };
     pub const 虹: Self = Self { 種別: ボクセル種別::虹 };
     pub const 岩盤: Self = Self { 種別: ボクセル種別::岩盤 };
-    
+
     pub fn は空気か(&self) -> bool { self.種別 == ボクセル種別::空気 }
     pub fn は水か(&self) -> bool { self.種別 == ボクセル種別::水 }
 }
@@ -32,17 +32,17 @@ pub const 岩盤の高さ: f32 = 0.5;
 pub const 描画距離: i32 = 20;
 
 #[derive(Clone)]
-pub struct Chunk {
-    pub voxels: Vec<ボクセル>,
+pub struct チャンク {
+    pub ボクセル群: Vec<ボクセル>,
 }
 
-impl Chunk {
-    pub fn new_empty() -> Self {
-        Self { voxels: vec![ボクセル::空気; チャンク解像度 * チャンク解像度 * チャンク解像度] }
+impl チャンク {
+    pub fn 空で生成() -> Self {
+        Self { ボクセル群: vec![ボクセル::空気; チャンク解像度 * チャンク解像度 * チャンク解像度] }
     }
 
-    pub fn new_hilly_terrain(cx: i32, cy: i32, cz: i32) -> Self {
-        let mut chunk = Self::new_empty();
+    pub fn 丘陵地形生成(cx: i32, cy: i32, cz: i32) -> Self {
+        let mut chunk = Self::空で生成();
         let wo_x = cx as f32 * チャンクのワールドサイズ;
         let wo_y = cy as f32 * チャンクのワールドサイズ;
         let wo_z = cz as f32 * チャンクのワールドサイズ;
@@ -51,7 +51,7 @@ impl Chunk {
             for z in 0..チャンク解像度 {
                 let gx = wo_x + (x as f32 * ボクセルスケール);
                 let gz = wo_z + (z as f32 * ボクセルスケール);
-                
+
                 let h_base = (gx * 0.08).sin() * 5.0 + (gz * 0.08).cos() * 5.0;
                 let h_hills = (gx * 0.2).sin() * (gz * 0.15).cos() * 3.0;
                 let h_detail = (gx * 0.4).sin() * 1.5 + (gz * 0.35).cos() * 1.5;
@@ -64,24 +64,24 @@ impl Chunk {
 
                     // 岩盤層
                     if gy <= 岩盤の高さ {
-                        chunk.set(x, y, z, ボクセル::岩盤);
+                        chunk.設定(x, y, z, ボクセル::岩盤);
                         continue;
                     }
 
                     // 虹の道
                     let rainbow_y = 25.0 + (gx * 0.05).sin() * 5.0;
                     if (gy - rainbow_y).abs() < 0.2 && (gz - 10.0).abs() < 3.0 {
-                        chunk.set(x, y, z, ボクセル::虹); continue;
+                        chunk.設定(x, y, z, ボクセル::虹); continue;
                     }
                     // 橋
                     if (gz - 2.0).abs() < 1.0 && (gy - 6.0).abs() < 0.2 && (gx % 40.0).abs() < 20.0 {
-                        chunk.set(x, y, z, ボクセル::橋); continue;
+                        chunk.設定(x, y, z, ボクセル::橋); continue;
                     }
                     // 道路
                     let is_road = (gx - 5.0).abs() < 1.5 || (gz - 5.0).abs() < 1.5;
 
                     if gy > ground_y {
-                        if gy <= 水面高さ { chunk.set(x, y, z, ボクセル::水); }
+                        if gy <= 水面高さ { chunk.設定(x, y, z, ボクセル::水); }
                         continue;
                     }
 
@@ -99,8 +99,8 @@ impl Chunk {
                     let is_shaft = vertical_shaft < 0.05 && gy < ground_y - 2.0 && gy > 岩盤の高さ + 0.5;
 
                     if cave_noise > 0.55 || is_tunnel || cave_small > 0.85 || is_shaft {
-                        if gy <= 水面高さ { chunk.set(x, y, z, ボクセル::水); }
-                        else { chunk.set(x, y, z, ボクセル::空気); }
+                        if gy <= 水面高さ { chunk.設定(x, y, z, ボクセル::水); }
+                        else { chunk.設定(x, y, z, ボクセル::空気); }
                         continue;
                     }
 
@@ -109,33 +109,33 @@ impl Chunk {
                         else if depth < 0.3 { ボクセル種別::草 }
                         else if depth < 1.5 { ボクセル種別::土 }
                         else { ボクセル種別::石 };
-                    chunk.set(x, y, z, ボクセル { 種別: v_type });
+                    chunk.設定(x, y, z, ボクセル { 種別: v_type });
                 }
             }
         }
         chunk
     }
 
-    fn idx(x: usize, y: usize, z: usize) -> usize {
+    fn 添字(x: usize, y: usize, z: usize) -> usize {
         x + y * チャンク解像度 + z * チャンク解像度 * チャンク解像度
     }
-    pub fn get(&self, x: usize, y: usize, z: usize) -> ボクセル {
-        if x < チャンク解像度 && y < チャンク解像度 && z < チャンク解像度 { self.voxels[Self::idx(x, y, z)] }
+    pub fn 取得(&self, x: usize, y: usize, z: usize) -> ボクセル {
+        if x < チャンク解像度 && y < チャンク解像度 && z < チャンク解像度 { self.ボクセル群[Self::添字(x, y, z)] }
         else { ボクセル::空気 }
     }
-    pub fn set(&mut self, x: usize, y: usize, z: usize, voxel: ボクセル) {
+    pub fn 設定(&mut self, x: usize, y: usize, z: usize, voxel: ボクセル) {
         if x < チャンク解像度 && y < チャンク解像度 && z < チャンク解像度 {
-            self.voxels[Self::idx(x, y, z)] = voxel;
+            self.ボクセル群[Self::添字(x, y, z)] = voxel;
         }
     }
 }
 
-pub fn carve_sphere(chunk: &Chunk, cx: f32, cy: f32, cz: f32, radius: f32) -> Chunk {
+pub fn 球体をくり抜く(chunk: &チャンク, cx: f32, cy: f32, cz: f32, radius: f32) -> チャンク {
     let mut new_chunk = chunk.clone();
     let r2 = radius * radius;
     for x in 0..チャンク解像度 { for y in 0..チャンク解像度 { for z in 0..チャンク解像度 {
         let dx = x as f32 - cx; let dy = y as f32 - cy; let dz = z as f32 - cz;
-        if dx*dx + dy*dy + dz*dz <= r2 { new_chunk.set(x, y, z, ボクセル::空気); }
+        if dx*dx + dy*dy + dz*dz <= r2 { new_chunk.設定(x, y, z, ボクセル::空気); }
     }}}
     new_chunk
 }

@@ -1,40 +1,49 @@
-mod voxel_world;
-mod meshing;
-mod camera_controller;
-mod chunk_system;
-mod collision;
-mod ui_logic;
-mod tetra_world;
-mod tetra_meshing;
-mod tetra_chunk_system;
+#[path = "ボクセル世界.rs"]
+mod ボクセル世界;
+#[path = "メッシュ生成.rs"]
+mod メッシュ生成;
+#[path = "カメラ制御.rs"]
+mod カメラ制御;
+#[path = "チャンク管理.rs"]
+mod チャンク管理;
+#[path = "衝突判定.rs"]
+mod 衝突判定;
+#[path = "UI設定.rs"]
+mod UI設定;
+#[path = "四面体世界.rs"]
+mod 四面体世界;
+#[path = "四面体メッシュ生成.rs"]
+mod 四面体メッシュ生成;
+#[path = "四面体チャンク管理.rs"]
+mod 四面体チャンク管理;
 
 use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
-use ui_logic::{setup_ui, handle_button_interaction, update_ui_state, update_fps_counter, AppState, EditorView};
-use camera_controller::handle_unity_camera;
-use chunk_system::{manage_chunks, process_chunk_tasks, ChunkRenderData};
-use tetra_chunk_system::{manage_tetra_chunks, process_tetra_chunk_tasks, TetraChunkMarker};
+use UI設定::{UI初期化, ボタン操作処理, UI状態更新, FPS更新, アプリ状態, エディタビュー};
+use カメラ制御::カメラ操作処理;
+use チャンク管理::{チャンク管理処理, チャンクタスク処理, チャンク描画データ};
+use 四面体チャンク管理::{四面体チャンク管理処理, 四面体チャンクタスク処理, 四面体チャンクマーカー};
 
-fn is_cube_mode(state: Res<AppState>) -> bool {
-    state.active_view == EditorView::Scene
+fn 立方体モードか(state: Res<アプリ状態>) -> bool {
+    state.現在のビュー == エディタビュー::シーン
 }
 
-fn is_tetra_mode(state: Res<AppState>) -> bool {
-    state.active_view == EditorView::Tetra
+fn 四面体モードか(state: Res<アプリ状態>) -> bool {
+    state.現在のビュー == エディタビュー::四面体
 }
 
-fn toggle_chunk_visibility(
-    state: Res<AppState>,
-    mut cube_query: Query<&mut Visibility, (With<ChunkRenderData>, Without<TetraChunkMarker>)>,
-    mut tetra_query: Query<&mut Visibility, (With<TetraChunkMarker>, Without<ChunkRenderData>)>,
+fn チャンク表示切替(
+    state: Res<アプリ状態>,
+    mut cube_query: Query<&mut Visibility, (With<チャンク描画データ>, Without<四面体チャンクマーカー>)>,
+    mut tetra_query: Query<&mut Visibility, (With<四面体チャンクマーカー>, Without<チャンク描画データ>)>,
 ) {
     if state.is_changed() || state.is_added() {
-        let is_cube = state.active_view == EditorView::Scene;
+        let is_cube = state.現在のビュー == エディタビュー::シーン;
         for mut vis in &mut cube_query {
             *vis = if is_cube { Visibility::Visible } else { Visibility::Hidden };
         }
-        
-        let is_tetra = state.active_view == EditorView::Tetra;
+
+        let is_tetra = state.現在のビュー == エディタビュー::四面体;
         for mut vis in &mut tetra_query {
             *vis = if is_tetra { Visibility::Visible } else { Visibility::Hidden };
         }
@@ -53,22 +62,22 @@ fn main() {
             ..default()
         }))
         .add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()))
-        // Startup
-        .add_systems(Startup, setup_ui)
-        // Update Loop
+        // 起動時
+        .add_systems(Startup, UI初期化)
+        // 更新ループ
         .add_systems(Update, (
-            handle_button_interaction,
-            update_ui_state,
-            handle_unity_camera,
-            update_fps_counter,
+            ボタン操作処理,
+            UI状態更新,
+            カメラ操作処理,
+            FPS更新,
             // 立方体モード (Scene tab)
-            manage_chunks.run_if(is_cube_mode),
-            process_chunk_tasks.run_if(is_cube_mode),
-            // 四面体モード (Code tab)
-            manage_tetra_chunks.run_if(is_tetra_mode),
-            process_tetra_chunk_tasks.run_if(is_tetra_mode),
+            チャンク管理処理.run_if(立方体モードか),
+            チャンクタスク処理.run_if(立方体モードか),
+            // 四面体モード (Tetra tab)
+            四面体チャンク管理処理.run_if(四面体モードか),
+            四面体チャンクタスク処理.run_if(四面体モードか),
             // 表示切替
-            toggle_chunk_visibility,
+            チャンク表示切替,
         ))
         .run();
 }

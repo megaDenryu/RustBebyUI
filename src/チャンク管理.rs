@@ -1,22 +1,22 @@
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
-use crate::voxel_world::{Chunk, 描画距離, チャンクのワールドサイズ};
-use crate::meshing;
-use crate::camera_controller::UnityCamera;
+use crate::ボクセル世界::{チャンク, 描画距離, チャンクのワールドサイズ};
+use crate::メッシュ生成;
+use crate::カメラ制御::カメラ操作;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
 use futures_lite::future;
 
 #[derive(Resource)]
-pub struct ChunkManager {
-    pub loaded_chunks: HashMap<(i32, i32, i32), (Entity, Chunk, u32)>, // Entity, Domain, CurrentLOD
-    pub loading_chunks: HashSet<(i32, i32, i32)>, 
+pub struct チャンク管理者 {
+    pub 読込済み: HashMap<(i32, i32, i32), (Entity, チャンク, u32)>,
+    pub 読込中: HashSet<(i32, i32, i32)>,
 }
 
 #[derive(Resource)]
-pub struct VoxelMaterial(pub Handle<StandardMaterial>);
+pub struct ボクセル素材(pub Handle<StandardMaterial>);
 
 #[derive(Component)]
-pub struct ChunkRenderData {
+pub struct チャンク描画データ {
     pub cx: i32,
     pub cy: i32,
     pub cz: i32,
@@ -24,16 +24,16 @@ pub struct ChunkRenderData {
 }
 
 #[derive(Component)]
-pub struct ChunkTask {
-    pub pos: (i32, i32, i32),
-    pub task: Task<Option<((i32, i32, i32), Chunk, Mesh, u32)>>,
+pub struct チャンクタスク {
+    pub 位置: (i32, i32, i32),
+    pub タスク: Task<Option<((i32, i32, i32), チャンク, Mesh, u32)>>,
 }
 
-pub fn manage_chunks(
+pub fn チャンク管理処理(
     mut commands: Commands,
-    camera_query: Query<&Transform, With<UnityCamera>>,
-    mut chunk_manager: ResMut<ChunkManager>,
-    mut last_pos: Local<Option<Vec3>>, // 前回の位置を記録
+    camera_query: Query<&Transform, With<カメラ操作>>,
+    mut chunk_manager: ResMut<チャンク管理者>,
+    mut last_pos: Local<Option<Vec3>>,
 ) {
     let Ok(camera_transform) = camera_query.get_single() else { return };
     let cam_p = camera_transform.translation;
@@ -48,7 +48,7 @@ pub fn manage_chunks(
 
     let center_cx = (cam_p.x / チャンクのワールドサイズ).floor() as i32;
     let center_cz = (cam_p.z / チャンクのワールドサイズ).floor() as i32;
-    let center_cy = 0; 
+    let center_cy = 0;
 
     let mut needed_chunks = HashSet::new();
     for dx in -描画距離..=描画距離 {
@@ -58,7 +58,7 @@ pub fn manage_chunks(
         }
     }
 
-    chunk_manager.loaded_chunks.retain(|&pos, &mut (entity, _, _)| {
+    chunk_manager.読込済み.retain(|&pos, &mut (entity, _, _)| {
         if !needed_chunks.contains(&pos) {
             commands.entity(entity).despawn_recursive();
             return false;
@@ -67,28 +67,27 @@ pub fn manage_chunks(
     });
 
     // 進行中フラグのクリーンアップ
-    chunk_manager.loading_chunks.retain(|pos| needed_chunks.contains(pos));
+    chunk_manager.読込中.retain(|pos| needed_chunks.contains(pos));
 
-    // 2. 必要なタスクの優先順位付けと収集
+    // 必要なタスクの優先順位付けと収集
     let mut tasks_to_spawn = Vec::new();
     for &pos in &needed_chunks {
-        if chunk_manager.loading_chunks.contains(&pos) { continue; }
+        if chunk_manager.読込中.contains(&pos) { continue; }
 
         let dx = pos.0 - center_cx;
         let dz = pos.2 - center_cz;
         let dist_sq = dx * dx + dz * dz;
-        
-        // ターゲットLODの決定 (4段階, 解像度64対応)
-        // LOD1: 近距離, LOD2: 中距離, LOD4: 遠距離, LOD8: 最遠
-        let target_lod = if dist_sq <= 6*6 { 1 } 
-            else if dist_sq <= 12*12 { 2 } 
-            else if dist_sq <= 17*17 { 4 } 
+
+        // ターゲットLODの決定 (4段階)
+        let target_lod = if dist_sq <= 6*6 { 1 }
+            else if dist_sq <= 12*12 { 2 }
+            else if dist_sq <= 17*17 { 4 }
             else { 8 };
 
-        let needs_load = if let Some(&(_, _, current_lod)) = chunk_manager.loaded_chunks.get(&pos) {
-            current_lod != target_lod // LOD更新が必要
+        let needs_load = if let Some(&(_, _, current_lod)) = chunk_manager.読込済み.get(&pos) {
+            current_lod != target_lod
         } else {
-            true // 新規ロード
+            true
         };
 
         if needs_load {
@@ -99,43 +98,43 @@ pub fn manage_chunks(
     // 距離が近い順にソート
     tasks_to_spawn.sort_by_key(|t| t.1);
 
-    // 3. スポーンの制限 (1フレームに最大2つまで)
+    // スポーンの制限 (1フレームに最大2つまで)
     let pool = AsyncComputeTaskPool::get();
     let spawn_limit = 2;
     for (pos, _, target_lod) in tasks_to_spawn.into_iter().take(spawn_limit) {
-        chunk_manager.loading_chunks.insert(pos);
-        
+        chunk_manager.読込中.insert(pos);
+
         let task = pool.spawn(async move {
-            let chunk = Chunk::new_hilly_terrain(pos.0, pos.1, pos.2);
-            let mesh = meshing::generate_naive_mesh(&chunk, target_lod);
+            let chunk = チャンク::丘陵地形生成(pos.0, pos.1, pos.2);
+            let mesh = メッシュ生成::メッシュ生成(&chunk, target_lod);
             Some((pos, chunk, mesh, target_lod))
         });
-        
-        commands.spawn(ChunkTask { pos, task });
+
+        commands.spawn(チャンクタスク { 位置: pos, タスク: task });
     }
 }
 
 // 非同期タスクの結果を回収して描画Entityを生成するシステム
-pub fn process_chunk_tasks(
+pub fn チャンクタスク処理(
     mut commands: Commands,
-    mut tasks: Query<(Entity, &mut ChunkTask)>,
-    mut chunk_manager: ResMut<ChunkManager>,
+    mut tasks: Query<(Entity, &mut チャンクタスク)>,
+    mut chunk_manager: ResMut<チャンク管理者>,
     mut meshes: ResMut<Assets<Mesh>>,
-    voxel_material: Res<VoxelMaterial>,
+    voxel_material: Res<ボクセル素材>,
 ) {
     for (task_entity, mut chunk_task) in &mut tasks {
-        if let Some(result) = future::block_on(future::poll_once(&mut chunk_task.task)) {
+        if let Some(result) = future::block_on(future::poll_once(&mut chunk_task.タスク)) {
             // タスク管理用のEntityを削除
             commands.entity(task_entity).despawn();
 
             if let Some((pos, chunk, mesh, lod)) = result {
                 // 既にロード対象外なら無視
-                if !chunk_manager.loading_chunks.contains(&pos) {
+                if !chunk_manager.読込中.contains(&pos) {
                     continue;
                 }
 
                 // シームレスな差し替え: 古いEntityがあれば削除
-                if let Some((old_entity, _, _)) = chunk_manager.loaded_chunks.get(&pos) {
+                if let Some((old_entity, _, _)) = chunk_manager.読込済み.get(&pos) {
                     commands.entity(*old_entity).despawn_recursive();
                 }
 
@@ -147,14 +146,13 @@ pub fn process_chunk_tasks(
                         pos.1 as f32 * チャンクのワールドサイズ,
                         pos.2 as f32 * チャンクのワールドサイズ,
                     ),
-                    ChunkRenderData { cx: pos.0, cy: pos.1, cz: pos.2, lod },
+                    チャンク描画データ { cx: pos.0, cy: pos.1, cz: pos.2, lod },
                 )).id();
 
-                chunk_manager.loaded_chunks.insert(pos, (render_entity, chunk, lod));
-                chunk_manager.loading_chunks.remove(&pos);
+                chunk_manager.読込済み.insert(pos, (render_entity, chunk, lod));
+                chunk_manager.読込中.remove(&pos);
 
-                // **CRITICAL FOR PERFORMANCE**: 1フレームに1つだけ処理する
-                // 複数のメッシュを一度に登録(AssetServer::add)するとメインスレッドが止まるため
+                // 1フレームに1つだけ処理する (パフォーマンス最適化)
                 break;
             }
         }

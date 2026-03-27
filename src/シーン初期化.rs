@@ -61,9 +61,9 @@ pub fn シーン初期化(
             clear_color: ClearColorConfig::Custom(fog_color),
             ..default()
         },
-        Transform::from_xyz(8.0, 25.0, 8.0).looking_at(Vec3::new(10.0, 23.0, 10.0), Vec3::Y),
+        Transform::from_xyz(8.0, 17.5, 8.0).looking_at(Vec3::new(12.0, 16.5, 12.0), Vec3::Y),
         カメラ操作 {
-            yaw: -0.4, pitch: -0.3,
+            yaw: -0.4, pitch: -0.1,
             感度: 0.002, 速度: 5.0,
             垂直速度: 0.0, 接地中: false, 飛行中: false,
         },

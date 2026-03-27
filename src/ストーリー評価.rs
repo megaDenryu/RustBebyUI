@@ -408,6 +408,7 @@ pub fn カレンダー表示更新(
     mut commands: Commands,
     カレンダー: Res<カレンダーストア>,
     時間: Res<ゲーム時間>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &カレンダー内容表示)>,
 ) {
     if !カレンダー.is_changed() && !時間.is_changed() { return; }
@@ -417,13 +418,13 @@ pub fn カレンダー表示更新(
             let 月 = 時間.日付.月;
             let mut 日付一覧: Vec<_> = カレンダー.予定群.keys().filter(|d| d.月 == 月).copied().collect();
             日付一覧.sort_by_key(|d| (d.月, d.日));
-            parent.spawn((Text::new(format!("── {}月 ──", 月)), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーアクセント色)));
+            parent.spawn((Text::new(format!("── {}月 ──", 月)), font.テキスト(13.0), TextColor(サイバーアクセント色)));
             for 日付 in 日付一覧 {
                 for 予定 in カレンダー.取得(&日付) {
                     let is_today = 日付 == 時間.日付;
                     let マーカー = if is_today { "▶ " } else { "  " };
                     let color = if 予定.重要 { サイバー重要色 } else if is_today { サイバーアクセント色 } else { サイバーテキスト色 };
-                    parent.spawn((Text::new(format!("{}{}日  {}", マーカー, 日付.日, 予定.内容)), TextFont { font_size: 12.0, ..default() }, TextColor(color)));
+                    parent.spawn((Text::new(format!("{}{}日  {}", マーカー, 日付.日, 予定.内容)), font.テキスト(12.0), TextColor(color)));
                 }
             }
         });
@@ -433,6 +434,7 @@ pub fn カレンダー表示更新(
 pub fn メッセージ表示更新(
     mut commands: Commands,
     mut メッセージ: ResMut<メッセージストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &メッセージ内容表示)>,
 ) {
     if !メッセージ.is_changed() { return; }
@@ -441,13 +443,13 @@ pub fn メッセージ表示更新(
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
             if メッセージ.メッセージ群.is_empty() {
-                parent.spawn((Text::new("メッセージはありません"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色)));
+                parent.spawn((Text::new("メッセージはありません"), font.テキスト(12.0), TextColor(サイバー薄文字色)));
                 return;
             }
             for msg in メッセージ.メッセージ群.iter().rev() {
-                parent.spawn((Text::new(format!("From: {} ({})", msg.送信者, msg.日付)), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色)));
-                parent.spawn((Text::new(msg.本文.clone()), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーテキスト色)));
-                parent.spawn((Text::new("─────────────────"), TextFont { font_size: 10.0, ..default() }, TextColor(サイバーボーダー色)));
+                parent.spawn((Text::new(format!("From: {} ({})", msg.送信者, msg.日付)), font.テキスト(11.0), TextColor(サイバーアクセント色)));
+                parent.spawn((Text::new(msg.本文.clone()), font.テキスト(12.0), TextColor(サイバーテキスト色)));
+                parent.spawn((Text::new("─────────────────"), font.テキスト(10.0), TextColor(サイバーボーダー色)));
             }
         });
     }
@@ -456,6 +458,7 @@ pub fn メッセージ表示更新(
 pub fn ドキュメント表示更新(
     mut commands: Commands,
     mut ドキュメント: ResMut<ドキュメントストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &ドキュメント一覧表示)>,
 ) {
     if !ドキュメント.is_changed() { return; }
@@ -464,14 +467,14 @@ pub fn ドキュメント表示更新(
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
             if ドキュメント.文書群.is_empty() {
-                parent.spawn((Text::new("発見した文書はありません"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色)));
+                parent.spawn((Text::new("発見した文書はありません"), font.テキスト(12.0), TextColor(サイバー薄文字色)));
                 return;
             }
             for doc in &ドキュメント.文書群 {
                 let カテゴリ名 = match doc.カテゴリ { ドキュメントカテゴリ::手紙=>"手紙", ドキュメントカテゴリ::日記=>"日記", ドキュメントカテゴリ::地図=>"地図", ドキュメントカテゴリ::公文書=>"公文書", ドキュメントカテゴリ::メモ=>"メモ" };
-                parent.spawn((Text::new(format!("[{}] {}", カテゴリ名, doc.タイトル)), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーアクセント色)));
-                parent.spawn((Text::new(doc.本文.clone()), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーテキスト色)));
-                parent.spawn((Text::new(""), TextFont { font_size: 6.0, ..default() }, TextColor(サイバーボーダー色)));
+                parent.spawn((Text::new(format!("[{}] {}", カテゴリ名, doc.タイトル)), font.テキスト(13.0), TextColor(サイバーアクセント色)));
+                parent.spawn((Text::new(doc.本文.clone()), font.テキスト(12.0), TextColor(サイバーテキスト色)));
+                parent.spawn((Text::new(""), font.テキスト(6.0), TextColor(サイバーボーダー色)));
             }
         });
     }
@@ -480,6 +483,7 @@ pub fn ドキュメント表示更新(
 pub fn 通知表示更新(
     mut commands: Commands,
     通知: Res<通知ストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &通知テキスト)>,
 ) {
     if !通知.is_changed() { return; }
@@ -488,7 +492,7 @@ pub fn 通知表示更新(
         commands.entity(entity).with_children(|parent| {
             for n in &通知.通知群 {
                 parent.spawn((Node { padding: UiRect::all(Val::Px(8.0)), margin: UiRect::bottom(Val::Px(4.0)), ..default() }, BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85))))
-                    .with_child((Text::new(n.テキスト.clone()), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーアクセント色)));
+                    .with_child((Text::new(n.テキスト.clone()), font.テキスト(13.0), TextColor(サイバーアクセント色)));
             }
         });
     }
@@ -497,6 +501,7 @@ pub fn 通知表示更新(
 pub fn 選択肢表示更新(
     mut commands: Commands,
     選択肢: Res<選択肢ストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &選択肢オーバーレイ)>,
 ) {
     if !選択肢.is_changed() { return; }
@@ -506,14 +511,14 @@ pub fn 選択肢表示更新(
         commands.entity(entity).with_children(|parent| {
             parent.spawn((Node { flex_direction: FlexDirection::Column, padding: UiRect::all(Val::Px(16.0)), row_gap: Val::Px(8.0), ..default() }, BackgroundColor(Color::srgba(0.03, 0.05, 0.1, 0.95))))
                 .with_children(|panel| {
-                    panel.spawn((Text::new(選択肢.タイトル.clone()), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
+                    panel.spawn((Text::new(選択肢.タイトル.clone()), font.テキスト(14.0), TextColor(サイバーアクセント色)));
                     for (i, item) in 選択肢.選択肢群.iter().enumerate() {
                         let is_sel = i == 選択肢.カーソル位置;
                         let marker = if is_sel { "▶ " } else { "  " };
                         let color = if is_sel { サイバーアクセント色 } else { サイバーテキスト色 };
-                        panel.spawn((Text::new(format!("{}{}", marker, item.テキスト)), TextFont { font_size: 13.0, ..default() }, TextColor(color)));
+                        panel.spawn((Text::new(format!("{}{}", marker, item.テキスト)), font.テキスト(13.0), TextColor(color)));
                     }
-                    panel.spawn((Text::new("[↑↓] 選択  [Enter/F] 決定  [Esc] 戻る"), TextFont { font_size: 10.0, ..default() }, TextColor(サイバー薄文字色)));
+                    panel.spawn((Text::new("[↑↓] 選択  [Enter/F] 決定  [Esc] 戻る"), font.テキスト(10.0), TextColor(サイバー薄文字色)));
                 });
         });
     }
@@ -525,25 +530,26 @@ pub fn サイドバー更新(
     ドキュメント: Res<ドキュメントストア>,
     メッセージ: Res<メッセージストア>,
     クエスト: Res<クエストストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &サイドバー手がかり表示)>,
 ) {
     if !フラグ.is_changed() && !ドキュメント.is_changed() && !メッセージ.is_changed() && !クエスト.is_changed() { return; }
     for (entity, _) in &query {
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
-            parent.spawn((Text::new(format!("Docs: {}  Msg: {}", ドキュメント.文書群.len(), メッセージ.メッセージ群.len())), TextFont { font_size: 11.0, ..default() }, TextColor(サイバー薄文字色)));
+            parent.spawn((Text::new(format!("Docs: {}  Msg: {}", ドキュメント.文書群.len(), メッセージ.メッセージ群.len())), font.テキスト(11.0), TextColor(サイバー薄文字色)));
             let active: Vec<_> = クエスト.クエスト群.iter().filter(|q| !q.完了).collect();
             if !active.is_empty() {
-                parent.spawn((Text::new("── Quests ──"), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色)));
-                for q in &active { parent.spawn((Text::new(format!("  ◇ {}", q.名前)), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色))); }
+                parent.spawn((Text::new("── Quests ──"), font.テキスト(11.0), TextColor(サイバーアクセント色)));
+                for q in &active { parent.spawn((Text::new(format!("  ◇ {}", q.名前)), font.テキスト(11.0), TextColor(サイバーテキスト色))); }
             }
             let done: Vec<_> = クエスト.クエスト群.iter().filter(|q| q.完了).collect();
-            for q in &done { parent.spawn((Text::new(format!("  ◆ {} ✓", q.名前)), TextFont { font_size: 11.0, ..default() }, TextColor(サイバー薄文字色))); }
-            parent.spawn((Text::new("── Clues ──"), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色)));
+            for q in &done { parent.spawn((Text::new(format!("  ◆ {} ✓", q.名前)), font.テキスト(11.0), TextColor(サイバー薄文字色))); }
+            parent.spawn((Text::new("── Clues ──"), font.テキスト(11.0), TextColor(サイバーアクセント色)));
             let mut flags: Vec<_> = フラグ.フラグ群.iter().filter(|(_, v)| **v).map(|(k, _)| k.clone()).collect();
             flags.sort();
-            if flags.is_empty() { parent.spawn((Text::new("  (none yet)"), TextFont { font_size: 11.0, ..default() }, TextColor(サイバー薄文字色))); }
-            else { for f in &flags { parent.spawn((Text::new(format!("  * {}", f)), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色))); } }
+            if flags.is_empty() { parent.spawn((Text::new("  (none yet)"), font.テキスト(11.0), TextColor(サイバー薄文字色))); }
+            else { for f in &flags { parent.spawn((Text::new(format!("  * {}", f)), font.テキスト(11.0), TextColor(サイバーテキスト色))); } }
         });
     }
 }
@@ -551,22 +557,23 @@ pub fn サイドバー更新(
 pub fn マップ表示更新(
     mut commands: Commands,
     エリア: Res<エリアストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &マップ内容表示)>,
 ) {
     if !エリア.is_changed() { return; }
     for (entity, _) in &query {
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
-            if エリア.エリア群.is_empty() { parent.spawn((Text::new("未探索"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色))); return; }
-            parent.spawn((Text::new("── 発見済みエリア ──"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーアクセント色)));
+            if エリア.エリア群.is_empty() { parent.spawn((Text::new("未探索"), font.テキスト(12.0), TextColor(サイバー薄文字色))); return; }
+            parent.spawn((Text::new("── 発見済みエリア ──"), font.テキスト(12.0), TextColor(サイバーアクセント色)));
             for area in &エリア.エリア群 {
                 let is_cur = エリア.現在のエリア.as_deref() == Some(area.名前.as_str());
                 let m = if is_cur { "▶ " } else { "  " };
                 let c = if is_cur { サイバーアクセント色 } else { サイバーテキスト色 };
-                parent.spawn((Text::new(format!("{}{} ({:.0},{:.0},{:.0})", m, area.名前, area.座標.x, area.座標.y, area.座標.z)), TextFont { font_size: 12.0, ..default() }, TextColor(c)));
+                parent.spawn((Text::new(format!("{}{} ({:.0},{:.0},{:.0})", m, area.名前, area.座標.x, area.座標.y, area.座標.z)), font.テキスト(12.0), TextColor(c)));
             }
-            if let Some(ref n) = エリア.現在のエリア { parent.spawn((Text::new(format!("\n現在地: {}", n)), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーアクセント色))); }
-            else { parent.spawn((Text::new("\n現在地: (エリア外)"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色))); }
+            if let Some(ref n) = エリア.現在のエリア { parent.spawn((Text::new(format!("\n現在地: {}", n)), font.テキスト(13.0), TextColor(サイバーアクセント色))); }
+            else { parent.spawn((Text::new("\n現在地: (エリア外)"), font.テキスト(12.0), TextColor(サイバー薄文字色))); }
         });
     }
 }
@@ -574,17 +581,18 @@ pub fn マップ表示更新(
 pub fn 人物表示更新(
     mut commands: Commands,
     人物: Res<人物ストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &人物内容表示)>,
 ) {
     if !人物.is_changed() { return; }
     for (entity, _) in &query {
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
-            if 人物.人物群.is_empty() { parent.spawn((Text::new("まだ誰にも会っていない"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色))); return; }
+            if 人物.人物群.is_empty() { parent.spawn((Text::new("まだ誰にも会っていない"), font.テキスト(12.0), TextColor(サイバー薄文字色))); return; }
             for (i, p) in 人物.人物群.iter().enumerate() {
-                parent.spawn((Text::new(format!("#{} {}", i+1, p.名前)), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
-                parent.spawn((Text::new(p.説明.clone()), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーテキスト色)));
-                parent.spawn((Text::new(""), TextFont { font_size: 4.0, ..default() }, TextColor(サイバーボーダー色)));
+                parent.spawn((Text::new(format!("#{} {}", i+1, p.名前)), font.テキスト(14.0), TextColor(サイバーアクセント色)));
+                parent.spawn((Text::new(p.説明.clone()), font.テキスト(12.0), TextColor(サイバーテキスト色)));
+                parent.spawn((Text::new(""), font.テキスト(4.0), TextColor(サイバーボーダー色)));
             }
         });
     }
@@ -593,16 +601,17 @@ pub fn 人物表示更新(
 pub fn タイムライン表示更新(
     mut commands: Commands,
     タイムライン: Res<タイムラインストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &タイムライン内容表示)>,
 ) {
     if !タイムライン.is_changed() { return; }
     for (entity, _) in &query {
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
-            if タイムライン.エントリ群.is_empty() { parent.spawn((Text::new("まだ何も起きていない"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色))); return; }
+            if タイムライン.エントリ群.is_empty() { parent.spawn((Text::new("まだ何も起きていない"), font.テキスト(12.0), TextColor(サイバー薄文字色))); return; }
             for entry in タイムライン.エントリ群.iter().rev() {
                 let 帯 = match entry.時間帯 { 時間帯::朝=>"朝", 時間帯::昼=>"昼", 時間帯::夕=>"夕", 時間帯::夜=>"夜" };
-                parent.spawn((Text::new(format!("[{} {}] {}", entry.日付, 帯, entry.テキスト)), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色)));
+                parent.spawn((Text::new(format!("[{} {}] {}", entry.日付, 帯, entry.テキスト)), font.テキスト(11.0), TextColor(サイバーテキスト色)));
             }
         });
     }
@@ -611,17 +620,18 @@ pub fn タイムライン表示更新(
 pub fn インベントリ表示更新(
     mut commands: Commands,
     フラグ: Res<フラグストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &インベントリ内容表示)>,
 ) {
     if !フラグ.is_changed() { return; }
     for (entity, _) in &query {
         commands.entity(entity).despawn_descendants();
         commands.entity(entity).with_children(|parent| {
-            parent.spawn((Text::new("── 所持品 ──"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーアクセント色)));
+            parent.spawn((Text::new("── 所持品 ──"), font.テキスト(12.0), TextColor(サイバーアクセント色)));
             let mut items: Vec<_> = フラグ.フラグ群.iter().filter(|(k, v)| k.starts_with("アイテム_") && **v).map(|(k, _)| k.strip_prefix("アイテム_").unwrap_or(k).to_string()).collect();
             items.sort();
-            if items.is_empty() { parent.spawn((Text::new("  何も持っていない"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバー薄文字色))); }
-            else { for item in &items { parent.spawn((Text::new(format!("  ◆ {}", item)), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーテキスト色))); } }
+            if items.is_empty() { parent.spawn((Text::new("  何も持っていない"), font.テキスト(12.0), TextColor(サイバー薄文字色))); }
+            else { for item in &items { parent.spawn((Text::new(format!("  ◆ {}", item)), font.テキスト(12.0), TextColor(サイバーテキスト色))); } }
         });
     }
 }
@@ -650,6 +660,7 @@ pub fn 天候ビジュアル更新(
 pub fn ヘルプ表示更新(
     mut commands: Commands,
     ヘルプ: Res<ヘルプ表示>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &ヘルプオーバーレイ)>,
 ) {
     if !ヘルプ.is_changed() { return; }
@@ -688,7 +699,7 @@ pub fn ヘルプ表示更新(
                     ];
                     for (text, accent) in lines {
                         let color = if accent { サイバーアクセント色 } else { サイバーテキスト色 };
-                        p.spawn((Text::new(text), TextFont { font_size: 12.0, ..default() }, TextColor(color)));
+                        p.spawn((Text::new(text), font.テキスト(12.0), TextColor(color)));
                     }
                 });
         });
@@ -699,6 +710,7 @@ pub fn ヘルプ表示更新(
 pub fn 会話表示更新(
     mut commands: Commands,
     会話: Res<会話ストア>,
+    font: Res<ゲームフォント>,
     query: Query<(Entity, &会話オーバーレイ)>,
 ) {
     if !会話.is_changed() { return; }
@@ -709,9 +721,9 @@ pub fn 会話表示更新(
         commands.entity(entity).with_children(|parent| {
             parent.spawn((Node { flex_direction: FlexDirection::Column, padding: UiRect::all(Val::Px(16.0)), row_gap: Val::Px(6.0), ..default() }, BackgroundColor(Color::srgba(0.02, 0.04, 0.08, 0.92))))
                 .with_children(|p| {
-                    p.spawn((Text::new(台詞.話者.clone()), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーアクセント色)));
-                    p.spawn((Text::new(台詞.本文.clone()), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーテキスト色)));
-                    p.spawn((Text::new(format!("[Enter/Space] 次へ ({}/{})", 会話.現在位置 + 1, 会話.台詞群.len())), TextFont { font_size: 10.0, ..default() }, TextColor(サイバー薄文字色)));
+                    p.spawn((Text::new(台詞.話者.clone()), font.テキスト(12.0), TextColor(サイバーアクセント色)));
+                    p.spawn((Text::new(台詞.本文.clone()), font.テキスト(14.0), TextColor(サイバーテキスト色)));
+                    p.spawn((Text::new(format!("[Enter/Space] 次へ ({}/{})", 会話.現在位置 + 1, 会話.台詞群.len())), font.テキスト(10.0), TextColor(サイバー薄文字色)));
                 });
         });
     }
@@ -724,11 +736,11 @@ pub fn 天候表示更新(
 ) {
     if !天候.is_changed() { return; }
     let 名前 = match 天候.現在 {
-        天候種別::晴れ => "☀ 晴れ",
-        天候種別::曇り => "☁ 曇り",
-        天候種別::雨 => "🌧 雨",
-        天候種別::嵐 => "⛈ 嵐",
-        天候種別::霧 => "🌫 霧",
+        天候種別::晴れ => "[*] 晴れ",
+        天候種別::曇り => "[-] 曇り",
+        天候種別::雨 => "[~] 雨",
+        天候種別::嵐 => "[!] 嵐",
+        天候種別::霧 => "[.] 霧",
     };
     for mut text in &mut query { text.0 = 名前.to_string(); }
 }

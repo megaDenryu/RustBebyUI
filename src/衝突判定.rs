@@ -18,7 +18,7 @@ pub fn 衝突判定処理(pos: Vec3, chunk_manager: &チャンク管理者) -> b
     for &offset in &衝突チェック点 {
         let p = pos + offset;
         let cx = (p.x / チャンクのワールドサイズ).floor() as i32;
-        let cy = 0;
+        let cy = (p.y / チャンクのワールドサイズ).floor() as i32;
         let cz = (p.z / チャンクのワールドサイズ).floor() as i32;
 
         if let Some((_entity, chunk, _lod)) = chunk_manager.読込済み.get(&(cx, cy, cz)) {

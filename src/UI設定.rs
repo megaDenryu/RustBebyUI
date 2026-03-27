@@ -18,6 +18,19 @@ pub const サイバー薄文字色: Color = Color::srgb(0.5, 0.5, 0.6);
 pub const サイバー重要色: Color = Color::srgb(1.0, 0.3, 0.3);
 
 // =============================================================================
+// フォントリソース
+// =============================================================================
+
+#[derive(Resource, Clone)]
+pub struct ゲームフォント(pub Handle<Font>);
+
+impl ゲームフォント {
+    pub fn テキスト(&self, size: f32) -> TextFont {
+        TextFont { font: self.0.clone(), font_size: size, ..default() }
+    }
+}
+
+// =============================================================================
 // 状態・コンポーネント
 // =============================================================================
 
@@ -100,8 +113,11 @@ pub struct タブテキスト(pub エディタビュー);
 // UI構築 (Startup System)
 // =============================================================================
 
-pub fn UI初期化(mut commands: Commands) {
+pub fn UI初期化(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let font = ゲームフォント(asset_server.load("fonts/meiryo.ttc"));
+    commands.insert_resource(font.clone());
     commands.insert_resource(アプリ状態 { 現在のビュー: エディタビュー::シーン });
+    let f = font;
 
     commands.spawn(Node {
         width: Val::Percent(100.0),
@@ -109,6 +125,7 @@ pub fn UI初期化(mut commands: Commands) {
         flex_direction: FlexDirection::Column,
         ..default()
     }).with_children(|root| {
+        let f = &f;
         // 本体
         root.spawn(Node {
             flex_grow: 1.0,
@@ -117,12 +134,12 @@ pub fn UI初期化(mut commands: Commands) {
             ..default()
         }).with_children(|body| {
             アクティビティバー構築(body);
-            サイドバー構築(body);
-            エディタエリア構築(body);
+            サイドバー構築(body, f);
+            エディタエリア構築(body, f);
         });
 
         // ステータスバー
-        ステータスバー構築(root);
+        ステータスバー構築(root, f);
     });
 
     // 通知オーバーレイ (画面上部中央)
@@ -201,7 +218,8 @@ fn アクティビティバー構築(parent: &mut ChildBuilder) {
     ));
 }
 
-fn サイドバー構築(parent: &mut ChildBuilder) {
+fn サイドバー構築(parent: &mut ChildBuilder, f: &ゲームフォント) {
+    let f = f.clone();
     parent.spawn((
         Node {
             width: Val::Px(260.0), height: Val::Percent(100.0),
@@ -214,7 +232,7 @@ fn サイドバー構築(parent: &mut ChildBuilder) {
     )).with_children(|sb| {
         // タイトル
         sb.spawn(Node { width: Val::Percent(100.0), padding: UiRect::all(Val::Px(16.0)), ..default() })
-            .with_child((Text::new("INVESTIGATION"), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーアクセント色)));
+            .with_child((Text::new("INVESTIGATION"), f.テキスト(12.0), TextColor(サイバーアクセント色)));
 
         // 手がかり一覧 (動的更新)
         sb.spawn((
@@ -230,13 +248,15 @@ fn サイドバー構築(parent: &mut ChildBuilder) {
     });
 }
 
-fn エディタエリア構築(parent: &mut ChildBuilder) {
+fn エディタエリア構築(parent: &mut ChildBuilder, f: &ゲームフォント) {
+    let f = f.clone();
     parent.spawn(Node {
         flex_grow: 1.0, height: Val::Percent(100.0),
         flex_direction: FlexDirection::Column,
         ..default()
     }).with_children(|ed| {
         // タブバー
+        let f2 = f.clone();
         ed.spawn((
             Node { width: Val::Percent(100.0), height: Val::Px(40.0), ..default() },
             BackgroundColor(サイバーサイドバー色),
@@ -265,17 +285,18 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                     },
                     BorderColor(サイバーボーダー色),
                     タブボタン(view),
-                )).with_child((Text::new(name), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーテキスト色), タブテキスト(view)));
+                )).with_child((Text::new(name), f2.テキスト(13.0), TextColor(サイバーテキスト色), タブテキスト(view)));
             }
         });
 
         // ビューコンテナ
         ed.spawn(Node { flex_grow: 1.0, width: Val::Percent(100.0), ..default() }).with_children(|container| {
             // 3Dビュー (透過: ワールドが見える)
-            ビュー構築(container, エディタビュー::シーン,  "WORLD :: RIGHT-DRAG TO NAVIGATE");
-            ビュー構築(container, エディタビュー::四面体, "TETRA :: TETRAHEDRAL VOXEL WORLD");
+            ビュー構築(container, エディタビュー::シーン,  "WORLD :: RIGHT-DRAG TO NAVIGATE", &f);
+            ビュー構築(container, エディタビュー::四面体, "TETRA :: TETRAHEDRAL VOXEL WORLD", &f);
 
             // カレンダービュー
+            let fc = f.clone();
             container.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -288,7 +309,7 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                 BackgroundColor(サイバー背景色),
                 ビューコンテナ(エディタビュー::カレンダー),
             )).with_children(|cal| {
-                cal.spawn((Text::new("CALENDAR"), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
+                cal.spawn((Text::new("CALENDAR"), fc.テキスト(14.0), TextColor(サイバーアクセント色)));
                 cal.spawn((
                     Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(4.0), ..default() },
                     カレンダー内容表示,
@@ -296,6 +317,7 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
             });
 
             // メッセージビュー
+            let fm = f.clone();
             container.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -308,7 +330,7 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                 BackgroundColor(サイバー背景色),
                 ビューコンテナ(エディタビュー::メッセージ),
             )).with_children(|msg| {
-                msg.spawn((Text::new("MESSAGES"), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
+                msg.spawn((Text::new("MESSAGES"), fm.テキスト(14.0), TextColor(サイバーアクセント色)));
                 msg.spawn((
                     Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(8.0), ..default() },
                     メッセージ内容表示,
@@ -316,6 +338,7 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
             });
 
             // ドキュメントビュー
+            let fd = f.clone();
             container.spawn((
                 Node {
                     position_type: PositionType::Absolute,
@@ -328,7 +351,7 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                 BackgroundColor(サイバー背景色),
                 ビューコンテナ(エディタビュー::ドキュメント),
             )).with_children(|doc| {
-                doc.spawn((Text::new("DOCUMENTS"), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
+                doc.spawn((Text::new("DOCUMENTS"), fd.テキスト(14.0), TextColor(サイバーアクセント色)));
                 doc.spawn((
                     Node { flex_direction: FlexDirection::Column, row_gap: Val::Px(6.0), ..default() },
                     ドキュメント一覧表示,
@@ -336,22 +359,23 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
             });
 
             // マップビュー
-            情報ビュー構築(container, エディタビュー::マップ, "MAP", マップ内容表示);
+            情報ビュー構築(container, エディタビュー::マップ, "MAP", マップ内容表示, &f);
 
             // 人物ビュー
-            情報ビュー構築(container, エディタビュー::人物, "PROFILES", 人物内容表示);
+            情報ビュー構築(container, エディタビュー::人物, "PROFILES", 人物内容表示, &f);
 
             // タイムラインビュー
-            情報ビュー構築(container, エディタビュー::タイムライン, "TIMELINE", タイムライン内容表示);
+            情報ビュー構築(container, エディタビュー::タイムライン, "TIMELINE", タイムライン内容表示, &f);
 
             // インベントリビュー
-            情報ビュー構築(container, エディタビュー::インベントリ, "INVENTORY", インベントリ内容表示);
+            情報ビュー構築(container, エディタビュー::インベントリ, "INVENTORY", インベントリ内容表示, &f);
         });
     });
 }
 
 /// 汎用的な情報ウィンドウの構築ヘルパー
-fn 情報ビュー構築(parent: &mut ChildBuilder, view: エディタビュー, title: &str, marker: impl Component) {
+fn 情報ビュー構築(parent: &mut ChildBuilder, view: エディタビュー, title: &str, marker: impl Component, f: &ゲームフォント) {
+    let f = f.clone();
     parent.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -364,7 +388,7 @@ fn 情報ビュー構築(parent: &mut ChildBuilder, view: エディタビュー,
         BackgroundColor(サイバー背景色),
         ビューコンテナ(view),
     )).with_children(|area| {
-        area.spawn((Text::new(title), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーアクセント色)));
+        area.spawn((Text::new(title), f.テキスト(14.0), TextColor(サイバーアクセント色)));
         area.spawn((
             Node {
                 flex_direction: FlexDirection::Column,
@@ -377,17 +401,18 @@ fn 情報ビュー構築(parent: &mut ChildBuilder, view: エディタビュー,
     });
 }
 
-fn ビュー構築(parent: &mut ChildBuilder, view: エディタビュー, label: &str) {
+fn ビュー構築(parent: &mut ChildBuilder, view: エディタビュー, label: &str, f: &ゲームフォント) {
+    let f = f.clone();
     parent.spawn((
         Node { width: Val::Percent(100.0), height: Val::Percent(100.0), ..default() },
         ビューコンテナ(view),
     )).with_children(|v| {
         v.spawn(Node { position_type: PositionType::Absolute, top: Val::Px(15.0), left: Val::Px(15.0), ..default() })
-            .with_child((Text::new(label), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色)));
+            .with_child((Text::new(label), f.テキスト(11.0), TextColor(サイバーアクセント色)));
     });
 }
 
-fn ステータスバー構築(parent: &mut ChildBuilder) {
+fn ステータスバー構築(parent: &mut ChildBuilder, f: &ゲームフォント) {
     parent.spawn((
         Node {
             width: Val::Percent(100.0), height: Val::Px(24.0),
@@ -398,9 +423,9 @@ fn ステータスバー構築(parent: &mut ChildBuilder) {
         },
         BackgroundColor(サイバーステータス色),
     ))
-    .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(Color::WHITE), 日付表示))
-    .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色), エリア名表示))
-    .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色), 天候表示))
-    .with_child((Text::new("[H] Help"), TextFont { font_size: 10.0, ..default() }, TextColor(サイバー薄文字色)))
-    .with_child((Text::new("FPS: --"), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色), FPSカウンター));
+    .with_child((Text::new(""), f.テキスト(11.0), TextColor(Color::WHITE), 日付表示))
+    .with_child((Text::new(""), f.テキスト(11.0), TextColor(サイバーテキスト色), エリア名表示))
+    .with_child((Text::new(""), f.テキスト(11.0), TextColor(サイバーテキスト色), 天候表示))
+    .with_child((Text::new("[H] Help"), f.テキスト(10.0), TextColor(サイバー薄文字色)))
+    .with_child((Text::new("FPS: --"), f.テキスト(11.0), TextColor(サイバーアクセント色), FPSカウンター));
 }

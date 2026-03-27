@@ -52,9 +52,10 @@ pub fn 四面体チャンク管理処理(
     *last_pos = Some(cam_p);
 
     let center_cx = (cam_p.x / チャンクのワールドサイズ).floor() as i32;
+    let center_cy = (cam_p.y / チャンクのワールドサイズ).floor() as i32;
     let center_cz = (cam_p.z / チャンクのワールドサイズ).floor() as i32;
 
-    let needed = 必要チャンク集合(center_cx, center_cz);
+    let needed = 必要チャンク集合(center_cx, center_cy, center_cz);
 
     manager.読込済み.retain(|&pos, &mut (entity, _)| {
         if !needed.contains(&pos) {
@@ -119,12 +120,17 @@ pub fn 四面体チャンクタスク処理(
     }
 }
 
-fn 必要チャンク集合(center_cx: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
+// Y方向はXZより狭い範囲で十分 (地形高さ ~0..35, チャンクサイズ 8.0)
+const Y描画距離: i32 = 3;
+
+fn 必要チャンク集合(center_cx: i32, center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
     let mut set = HashSet::new();
     for dx in -描画距離..=描画距離 {
         for dz in -描画距離..=描画距離 {
             if dx * dx + dz * dz > 描画距離 * 描画距離 { continue; }
-            set.insert((center_cx + dx, 0, center_cz + dz));
+            for dy in -Y描画距離..=Y描画距離 {
+                set.insert((center_cx + dx, center_cy + dy, center_cz + dz));
+            }
         }
     }
     set

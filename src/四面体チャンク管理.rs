@@ -13,7 +13,7 @@ use futures_lite::future;
 // LOD閾値 (チャンク管理と同じ値)
 const LOD1距離2乗: i32 = 6 * 6;
 const LOD2距離2乗: i32 = 12 * 12;
-const 毎フレーム最大タスク数: usize = 2;
+const 毎フレーム最大タスク数: usize = 4;
 const チャンク更新移動閾値: f32 = 0.5;
 
 fn LOD決定(距離2乗: i32) -> u32 {
@@ -88,6 +88,8 @@ pub fn 四面体チャンク管理処理(
     }
 }
 
+const メッシュ登録上限: usize = 8;
+
 pub fn 四面体チャンクタスク処理(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut 四面体チャンクタスク)>,
@@ -95,7 +97,9 @@ pub fn 四面体チャンクタスク処理(
     mut meshes: ResMut<Assets<Mesh>>,
     material: Res<ボクセル素材>,
 ) {
+    let mut 登録数 = 0;
     for (task_entity, mut chunk_task) in &mut tasks {
+        if 登録数 >= メッシュ登録上限 { break; }
         if let Some(result) = future::block_on(future::poll_once(&mut chunk_task.タスク)) {
             commands.entity(task_entity).despawn();
             if let Some((pos, mesh, lod)) = result {
@@ -105,23 +109,30 @@ pub fn 四面体チャンクタスク処理(
                     commands.entity(*old_entity).despawn_recursive();
                 }
 
-                let entity = commands.spawn((
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(material.0.clone()),
-                    Transform::IDENTITY, // メッシュ自体がワールド座標
-                    四面体チャンクマーカー,
-                )).id();
+                // 空メッシュスキップ
+                let has_vertices = mesh.count_vertices() > 0;
+                if has_vertices {
+                    let entity = commands.spawn((
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(material.0.clone()),
+                        Transform::IDENTITY,
+                        四面体チャンクマーカー,
+                    )).id();
+                    manager.読込済み.insert(pos, (entity, lod));
+                } else {
+                    let entity = commands.spawn_empty().id();
+                    manager.読込済み.insert(pos, (entity, lod));
+                }
 
-                manager.読込済み.insert(pos, (entity, lod));
                 manager.読込中.remove(&pos);
-                break;
+                登録数 += 1;
             }
         }
     }
 }
 
 // Y方向はXZより狭い範囲で十分 (地形高さ ~0..35, チャンクサイズ 8.0)
-const Y描画距離: i32 = 3;
+const Y描画距離: i32 = 2;
 
 fn 必要チャンク集合(center_cx: i32, center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
     let mut set = HashSet::new();

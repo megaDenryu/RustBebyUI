@@ -693,6 +693,7 @@ pub fn ヘルプ表示更新(
                         ("Enter/Space 会話送り", false),
                         ("Esc        キャンセル / 閉じる", false),
                         ("", false),
+                        ("F3         デバッグ表示", false),
                         ("F5         セーブ", false),
                         ("F9         ロード", false),
                         ("H          このヘルプを閉じる", false),

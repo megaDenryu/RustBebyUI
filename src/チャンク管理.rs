@@ -13,7 +13,7 @@ use futures_lite::future;
 const LOD1距離2乗: i32 = 6 * 6;
 const LOD2距離2乗: i32 = 12 * 12;
 const LOD4距離2乗: i32 = 17 * 17;
-const 毎フレーム最大タスク数: usize = 2;
+const 毎フレーム最大タスク数: usize = 4;
 const チャンク更新移動閾値: f32 = 0.5;
 
 fn LOD決定(距離2乗: i32) -> u32 {
@@ -112,6 +112,8 @@ pub fn チャンク管理処理(
     }
 }
 
+const メッシュ登録上限: usize = 8;
+
 pub fn チャンクタスク処理(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut チャンクタスク)>,
@@ -119,7 +121,9 @@ pub fn チャンクタスク処理(
     mut meshes: ResMut<Assets<Mesh>>,
     material: Res<ボクセル素材>,
 ) {
+    let mut 登録数 = 0;
     for (task_entity, mut chunk_task) in &mut tasks {
+        if 登録数 >= メッシュ登録上限 { break; }
         if let Some(result) = future::block_on(future::poll_once(&mut chunk_task.タスク)) {
             commands.entity(task_entity).despawn();
 
@@ -130,20 +134,28 @@ pub fn チャンクタスク処理(
                     commands.entity(*old_entity).despawn_recursive();
                 }
 
-                let entity = commands.spawn((
-                    Mesh3d(meshes.add(mesh)),
-                    MeshMaterial3d(material.0.clone()),
-                    Transform::from_xyz(
-                        pos.0 as f32 * チャンクのワールドサイズ,
-                        pos.1 as f32 * チャンクのワールドサイズ,
-                        pos.2 as f32 * チャンクのワールドサイズ,
-                    ),
-                    チャンク描画データ { cx: pos.0, cy: pos.1, cz: pos.2, lod },
-                )).id();
+                // 空メッシュ(全て空気)はEntity不生成でスキップ
+                let has_vertices = mesh.count_vertices() > 0;
+                if has_vertices {
+                    let entity = commands.spawn((
+                        Mesh3d(meshes.add(mesh)),
+                        MeshMaterial3d(material.0.clone()),
+                        Transform::from_xyz(
+                            pos.0 as f32 * チャンクのワールドサイズ,
+                            pos.1 as f32 * チャンクのワールドサイズ,
+                            pos.2 as f32 * チャンクのワールドサイズ,
+                        ),
+                        チャンク描画データ { cx: pos.0, cy: pos.1, cz: pos.2, lod },
+                    )).id();
+                    manager.読込済み.insert(pos, (entity, chunk, lod));
+                } else {
+                    // 空チャンクもデータは保持 (衝突判定用)、ダミーEntity
+                    let entity = commands.spawn_empty().id();
+                    manager.読込済み.insert(pos, (entity, chunk, lod));
+                }
 
-                manager.読込済み.insert(pos, (entity, chunk, lod));
                 manager.読込中.remove(&pos);
-                break; // 1フレーム1メッシュ登録 (パフォーマンス)
+                登録数 += 1;
             }
         }
     }
@@ -154,7 +166,7 @@ pub fn チャンクタスク処理(
 // =============================================================================
 
 // Y方向はXZより狭い範囲で十分 (地形高さ ~0..35, チャンクサイズ 8.0)
-const Y描画距離: i32 = 3;
+const Y描画距離: i32 = 2;
 
 fn 必要チャンク集合(center_cx: i32, center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
     let mut set = HashSet::new();

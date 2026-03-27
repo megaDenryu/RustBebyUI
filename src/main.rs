@@ -28,6 +28,8 @@ mod ストーリー評価;
 mod サンプルストーリー;
 #[path = "セーブ.rs"]
 mod セーブ;
+#[path = "デバッグ.rs"]
+mod デバッグ;
 
 use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -115,6 +117,7 @@ fn main() {
             シーン初期化::シーン初期化,
             UI設定::UI初期化,
             ストーリー初期化,
+            デバッグ::デバッグUI初期化,
         ))
         // 更新ループ: コア
         .add_systems(Update, (
@@ -167,6 +170,13 @@ fn main() {
         .add_systems(Update, (
             セーブ::セーブシステム,
             セーブ::ロードシステム,
+        ))
+        // デバッグ
+        .add_systems(Update, (
+            デバッグ::デバッグトグル,
+            デバッグ::デバッグ表示更新,
+            デバッグ::ワールド読込判定,
+            デバッグ::ローディング表示更新,
         ))
         .run();
 }

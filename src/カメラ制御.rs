@@ -3,6 +3,7 @@ use bevy::input::mouse::MouseMotion;
 use crate::ボクセル世界::{水面高さ, 岩盤の高さ};
 use crate::衝突判定::衝突判定処理;
 use crate::チャンク管理::チャンク管理者;
+use crate::デバッグ::デバッグ状態;
 
 // 地形高さ(8,8) ≈ 15.7 + 目の高さ 1.5 = 17.2
 pub const 初期位置: Vec3 = Vec3::new(8.0, 17.5, 8.0);
@@ -37,7 +38,10 @@ pub fn カメラ操作処理(
     mut mouse_motion: EventReader<MouseMotion>,
     mut query: Query<(&mut Transform, &mut カメラ操作)>,
     chunk_manager: Res<チャンク管理者>,
+    デバッグ: Res<デバッグ状態>,
 ) {
+    // ワールド読込完了まで操作を無効化 (落下防止)
+    if !デバッグ.ワールド読込完了 { return; }
     let (mut transform, mut cam) = query.single_mut();
     let delta = time.delta_secs();
 

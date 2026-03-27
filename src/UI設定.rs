@@ -84,6 +84,18 @@ pub struct インベントリ内容表示;
 #[derive(Component)]
 pub struct サイドバー手がかり表示;
 
+#[derive(Component)]
+pub struct ヘルプオーバーレイ;
+
+#[derive(Component)]
+pub struct 会話オーバーレイ;
+
+#[derive(Component)]
+pub struct 天候表示;
+
+#[derive(Component)]
+pub struct タブテキスト(pub エディタビュー);
+
 // =============================================================================
 // UI構築 (Startup System)
 // =============================================================================
@@ -140,6 +152,36 @@ pub fn UI初期化(mut commands: Commands) {
             ..default()
         },
         選択肢オーバーレイ,
+    ));
+
+    // 会話オーバーレイ (画面下部)
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(40.0),
+            left: Val::Percent(10.0),
+            width: Val::Percent(80.0),
+            flex_direction: FlexDirection::Column,
+            padding: UiRect::all(Val::Px(16.0)),
+            row_gap: Val::Px(4.0),
+            ..default()
+        },
+        会話オーバーレイ,
+    ));
+
+    // ヘルプオーバーレイ (画面中央, 大きめ)
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(10.0),
+            left: Val::Percent(15.0),
+            width: Val::Percent(70.0),
+            flex_direction: FlexDirection::Column,
+            padding: UiRect::all(Val::Px(20.0)),
+            row_gap: Val::Px(4.0),
+            ..default()
+        },
+        ヘルプオーバーレイ,
     ));
 }
 
@@ -223,7 +265,7 @@ fn エディタエリア構築(parent: &mut ChildBuilder) {
                     },
                     BorderColor(サイバーボーダー色),
                     タブボタン(view),
-                )).with_child((Text::new(name), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーテキスト色)));
+                )).with_child((Text::new(name), TextFont { font_size: 13.0, ..default() }, TextColor(サイバーテキスト色), タブテキスト(view)));
             }
         });
 
@@ -358,5 +400,7 @@ fn ステータスバー構築(parent: &mut ChildBuilder) {
     ))
     .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(Color::WHITE), 日付表示))
     .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色), エリア名表示))
+    .with_child((Text::new(""), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーテキスト色), 天候表示))
+    .with_child((Text::new("[H] Help"), TextFont { font_size: 10.0, ..default() }, TextColor(サイバー薄文字色)))
     .with_child((Text::new("FPS: --"), TextFont { font_size: 11.0, ..default() }, TextColor(サイバーアクセント色), FPSカウンター));
 }

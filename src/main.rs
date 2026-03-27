@@ -86,6 +86,9 @@ fn ストーリー初期化(
     commands.insert_resource(エリア);
     commands.insert_resource(ストーリーエンジン::選択肢ストア::default());
     commands.insert_resource(ストーリーエンジン::天候ストア::default());
+    commands.insert_resource(ストーリーエンジン::会話ストア::default());
+    commands.insert_resource(ストーリーエンジン::調査ポイントストア::default());
+    commands.insert_resource(ストーリーエンジン::ヘルプ表示::default());
     commands.insert_resource(エンジン);
 }
 
@@ -125,6 +128,7 @@ fn main() {
             ストーリー評価::通知更新システム,
             ストーリー評価::エリア判定システム,
             ストーリー評価::操作システム,
+            ストーリー評価::調査システム,
         ))
         // 更新ループ: UI ↔ ストーリーデータ同期
         .add_systems(Update, (
@@ -144,6 +148,14 @@ fn main() {
             ストーリー評価::タイムライン表示更新,
             ストーリー評価::インベントリ表示更新,
             ストーリー評価::天候ビジュアル更新,
+        ))
+        // 更新ループ: Phase 3 新機能
+        .add_systems(Update, (
+            ストーリー評価::ヘルプ表示更新,
+            ストーリー評価::会話表示更新,
+            ストーリー評価::天候表示更新,
+            ストーリー評価::未読バッジ更新,
+            ストーリー評価::昼夜サイクル更新,
         ))
         .run();
 }

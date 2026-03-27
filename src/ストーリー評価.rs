@@ -25,10 +25,22 @@ pub fn ストーリー評価システム(
     mut 選択肢: ResMut<選択肢ストア>,
     mut 天候: ResMut<天候ストア>,
     mut アプリ状態: ResMut<アプリ状態>,
+    mut 会話: ResMut<会話ストア>,
     カメラ: Query<&Transform, With<カメラ操作>>,
 ) {
-    // 選択肢表示中はイベント評価を停止
-    if 選択肢.表示中 { return; }
+    // 選択肢の決定済み効果があれば適用 (F調査の結果もここで処理)
+    if let Some(効果群) = 選択肢.決定済み効果.take() {
+        効果適用(
+            &効果群, &時間, &mut フラグ, &mut ドキュメント,
+            &mut メッセージ, &mut カレンダー, &mut 通知, &mut クエスト,
+            &mut 人物, &mut タイムライン, &mut エリア, &mut 選択肢,
+            &mut 天候, &mut アプリ状態, Some(&mut 会話), None,
+        );
+        return;
+    }
+
+    // 選択肢・会話表示中はイベント評価を停止
+    if 選択肢.表示中 || 会話.表示中 { return; }
 
     let プレイヤー位置 = カメラ.get_single().map(|t| t.translation).unwrap_or(Vec3::ZERO);
 
@@ -77,7 +89,7 @@ pub fn ストーリー評価システム(
             &イベント.効果群, &時間, &mut フラグ, &mut ドキュメント,
             &mut メッセージ, &mut カレンダー, &mut 通知, &mut クエスト,
             &mut 人物, &mut タイムライン, &mut エリア, &mut 選択肢,
-            &mut 天候, &mut アプリ状態,
+            &mut 天候, &mut アプリ状態, Some(&mut 会話), None,
         );
     }
 }
@@ -98,6 +110,8 @@ pub fn 効果適用(
     選択肢: &mut 選択肢ストア,
     天候: &mut 天候ストア,
     アプリ状態: &mut アプリ状態,
+    mut 会話: Option<&mut 会話ストア>,
+    mut 調査: Option<&mut 調査ポイントストア>,
 ) {
     for 効果 in 効果群 {
         match 効果 {
@@ -156,6 +170,24 @@ pub fn 効果適用(
             イベント効果::天候変更(種別) => {
                 天候.現在 = *種別;
             }
+            イベント効果::会話開始(台詞群) => {
+                if let Some(ref mut 会話) = 会話 {
+                    会話.表示中 = true;
+                    会話.台詞群 = 台詞群.clone();
+                    会話.現在位置 = 0;
+                }
+            }
+            イベント効果::調査ポイント登録 { 名前, 座標, 半径, 効果群: pt効果群 } => {
+                if let Some(ref mut 調査) = 調査 {
+                    調査.ポイント群.push(調査ポイント {
+                        名前: 名前.clone(),
+                        座標: *座標,
+                        半径: *半径,
+                        効果群: pt効果群.clone(),
+                        使用済み: false,
+                    });
+                }
+            }
         }
     }
 }
@@ -197,24 +229,52 @@ pub fn 通知更新システム(
     通知.通知群.retain(|n| n.残り秒数 > 0.0);
 }
 
-/// キーボードによる時間進行とタブ切替
+/// キーボードによる時間進行・タブ切替・ヘルプ・会話
 pub fn 操作システム(
     keys: Res<ButtonInput<KeyCode>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     mut 時間: ResMut<ゲーム時間>,
     mut 通知: ResMut<通知ストア>,
     mut 選択肢: ResMut<選択肢ストア>,
+    mut 会話: ResMut<会話ストア>,
+    mut ヘルプ: ResMut<ヘルプ表示>,
     mut アプリ状態: ResMut<アプリ状態>,
-    // 選択肢決定時に効果を適用するためのリソース群
     mut フラグ: ResMut<フラグストア>,
     mut ドキュメント: ResMut<ドキュメントストア>,
     mut メッセージ: ResMut<メッセージストア>,
     mut カレンダー: ResMut<カレンダーストア>,
     mut クエスト: ResMut<クエストストア>,
-    mut 人物: ResMut<人物ストア>,
-    mut タイムライン: ResMut<タイムラインストア>,
-    mut エリア: ResMut<エリアストア>,
     mut 天候: ResMut<天候ストア>,
 ) {
+    // --- ヘルプトグル (最優先) ---
+    if keys.just_pressed(KeyCode::KeyH) {
+        ヘルプ.表示中 = !ヘルプ.表示中;
+        return;
+    }
+    if ヘルプ.表示中 {
+        if keys.just_pressed(KeyCode::Escape) { ヘルプ.表示中 = false; }
+        return;
+    }
+
+    // --- 会話モード ---
+    if 会話.表示中 {
+        if keys.just_pressed(KeyCode::Enter) || keys.just_pressed(KeyCode::Space)
+            || keys.just_pressed(KeyCode::KeyF) || mouse.just_pressed(MouseButton::Left)
+        {
+            会話.現在位置 += 1;
+            if 会話.現在位置 >= 会話.台詞群.len() {
+                会話.表示中 = false;
+                会話.台詞群.clear();
+                会話.現在位置 = 0;
+            }
+        }
+        if keys.just_pressed(KeyCode::Escape) {
+            会話.表示中 = false;
+            会話.台詞群.clear();
+        }
+        return;
+    }
+
     // --- 選択肢モード ---
     if 選択肢.表示中 {
         if keys.just_pressed(KeyCode::ArrowUp) {
@@ -231,12 +291,7 @@ pub fn 操作システム(
                 let 効果群 = 選択肢.選択肢群[idx].効果群.clone();
                 選択肢.表示中 = false;
                 選択肢.選択肢群.clear();
-                効果適用(
-                    &効果群, &時間, &mut フラグ, &mut ドキュメント,
-                    &mut メッセージ, &mut カレンダー, &mut 通知, &mut クエスト,
-                    &mut 人物, &mut タイムライン, &mut エリア, &mut 選択肢,
-                    &mut 天候, &mut アプリ状態,
-                );
+                選択肢.決定済み効果 = Some(効果群); // 次フレームでストーリー評価システムが適用
             }
         }
         if keys.just_pressed(KeyCode::Escape) {
@@ -586,4 +641,168 @@ pub fn 天候ビジュアル更新(
         fog.color = fog_color;
     }
     ambient.brightness = brightness;
+}
+
+/// ヘルプオーバーレイの表示
+pub fn ヘルプ表示更新(
+    mut commands: Commands,
+    ヘルプ: Res<ヘルプ表示>,
+    query: Query<(Entity, &ヘルプオーバーレイ)>,
+) {
+    if !ヘルプ.is_changed() { return; }
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+        if !ヘルプ.表示中 { continue; }
+        commands.entity(entity).with_children(|parent| {
+            parent.spawn((Node { flex_direction: FlexDirection::Column, padding: UiRect::all(Val::Px(20.0)), row_gap: Val::Px(3.0), ..default() }, BackgroundColor(Color::srgba(0.03, 0.05, 0.1, 0.95))))
+                .with_children(|p| {
+                    let lines = [
+                        ("=== CONTROLS ===", true),
+                        ("", false),
+                        ("W/A/S/D    移動", false),
+                        ("Right-drag カメラ回転", false),
+                        ("Space      ジャンプ / 浮上", false),
+                        ("Shift      ダッシュ / 潜水", false),
+                        ("Q/E        飛行モード", false),
+                        ("R          位置リセット", false),
+                        ("", false),
+                        ("T          時間帯を進める", false),
+                        ("N          翌朝まで睡眠", false),
+                        ("F / 左クリック  周囲を調べる", false),
+                        ("", false),
+                        ("1-9        タブ切替", false),
+                        ("  1:World 2:Tetra 3:Calendar", false),
+                        ("  4:Messages 5:Documents", false),
+                        ("  6:Map 7:Profiles 8:Timeline 9:Inventory", false),
+                        ("", false),
+                        ("↑↓ Enter   選択肢操作", false),
+                        ("Enter/Space 会話送り", false),
+                        ("Esc        キャンセル / 閉じる", false),
+                        ("H          このヘルプを閉じる", false),
+                    ];
+                    for (text, accent) in lines {
+                        let color = if accent { サイバーアクセント色 } else { サイバーテキスト色 };
+                        p.spawn((Text::new(text), TextFont { font_size: 12.0, ..default() }, TextColor(color)));
+                    }
+                });
+        });
+    }
+}
+
+/// 会話オーバーレイの表示
+pub fn 会話表示更新(
+    mut commands: Commands,
+    会話: Res<会話ストア>,
+    query: Query<(Entity, &会話オーバーレイ)>,
+) {
+    if !会話.is_changed() { return; }
+    for (entity, _) in &query {
+        commands.entity(entity).despawn_descendants();
+        if !会話.表示中 || 会話.現在位置 >= 会話.台詞群.len() { continue; }
+        let 台詞 = &会話.台詞群[会話.現在位置];
+        commands.entity(entity).with_children(|parent| {
+            parent.spawn((Node { flex_direction: FlexDirection::Column, padding: UiRect::all(Val::Px(16.0)), row_gap: Val::Px(6.0), ..default() }, BackgroundColor(Color::srgba(0.02, 0.04, 0.08, 0.92))))
+                .with_children(|p| {
+                    p.spawn((Text::new(台詞.話者.clone()), TextFont { font_size: 12.0, ..default() }, TextColor(サイバーアクセント色)));
+                    p.spawn((Text::new(台詞.本文.clone()), TextFont { font_size: 14.0, ..default() }, TextColor(サイバーテキスト色)));
+                    p.spawn((Text::new(format!("[Enter/Space] 次へ ({}/{})", 会話.現在位置 + 1, 会話.台詞群.len())), TextFont { font_size: 10.0, ..default() }, TextColor(サイバー薄文字色)));
+                });
+        });
+    }
+}
+
+/// 天候ステータス表示
+pub fn 天候表示更新(
+    天候: Res<天候ストア>,
+    mut query: Query<&mut Text, With<天候表示>>,
+) {
+    if !天候.is_changed() { return; }
+    let 名前 = match 天候.現在 {
+        天候種別::晴れ => "☀ 晴れ",
+        天候種別::曇り => "☁ 曇り",
+        天候種別::雨 => "🌧 雨",
+        天候種別::嵐 => "⛈ 嵐",
+        天候種別::霧 => "🌫 霧",
+    };
+    for mut text in &mut query { text.0 = 名前.to_string(); }
+}
+
+/// 未読バッジ: タブテキストに未読数を表示
+pub fn 未読バッジ更新(
+    メッセージ: Res<メッセージストア>,
+    ドキュメント: Res<ドキュメントストア>,
+    mut query: Query<(&mut Text, &タブテキスト)>,
+) {
+    if !メッセージ.is_changed() && !ドキュメント.is_changed() { return; }
+    let msg_unread = メッセージ.未読数();
+    let doc_unread = ドキュメント.未読数();
+    for (mut text, tab) in &mut query {
+        text.0 = match tab.0 {
+            エディタビュー::メッセージ => {
+                if msg_unread > 0 { format!("Messages({})", msg_unread) } else { "Messages".into() }
+            }
+            エディタビュー::ドキュメント => {
+                if doc_unread > 0 { format!("Docs({})", doc_unread) } else { "Documents".into() }
+            }
+            エディタビュー::シーン => "World".into(),
+            エディタビュー::四面体 => "Tetra".into(),
+            エディタビュー::カレンダー => "Calendar".into(),
+            エディタビュー::マップ => "Map".into(),
+            エディタビュー::人物 => "Profiles".into(),
+            エディタビュー::タイムライン => "Timeline".into(),
+            エディタビュー::インベントリ => "Inventory".into(),
+        };
+    }
+}
+
+/// F調査システム: 周囲の調査ポイントを調べる
+pub fn 調査システム(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut 調査: ResMut<調査ポイントストア>,
+    mut 通知: ResMut<通知ストア>,
+    mut 選択肢: ResMut<選択肢ストア>,
+    会話: Res<会話ストア>,
+    ヘルプ: Res<ヘルプ表示>,
+    カメラ: Query<&Transform, With<カメラ操作>>,
+) {
+    // モーダル中は無効
+    if 選択肢.表示中 || 会話.表示中 || ヘルプ.表示中 { return; }
+
+    if keys.just_pressed(KeyCode::KeyF) {
+        let Ok(cam_t) = カメラ.get_single() else { return };
+        let pos = cam_t.translation;
+
+        let mut found = false;
+        for point in &mut 調査.ポイント群 {
+            if !point.使用済み && pos.distance(point.座標) <= point.半径 {
+                point.使用済み = true;
+                // 効果群を選択肢ストアの決定済み効果に入れて、次フレームでストーリー評価が適用
+                選択肢.決定済み効果 = Some(point.効果群.clone());
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            通知.追加("周囲に調べられるものはない。");
+        }
+    }
+}
+
+/// 昼夜サイクル: 時間帯に応じて太陽光の色・角度を変更
+pub fn 昼夜サイクル更新(
+    時間: Res<ゲーム時間>,
+    mut sun_query: Query<(&mut DirectionalLight, &mut Transform), Without<crate::カメラ制御::カメラ操作>>,
+) {
+    if !時間.is_changed() { return; }
+    let (color, illuminance, sun_y, sun_x) = match 時間.時間帯 {
+        時間帯::朝 => (Color::srgb(1.0, 0.85, 0.7), 10_000.0, 80.0, 30.0),   // 低い朝日
+        時間帯::昼 => (Color::srgb(1.0, 0.98, 0.9), 15_000.0, 120.0, 60.0),   // 高い太陽
+        時間帯::夕 => (Color::srgb(1.0, 0.6, 0.3), 8_000.0, 80.0, -30.0),     // オレンジの夕日
+        時間帯::夜 => (Color::srgb(0.3, 0.3, 0.5), 1_000.0, 40.0, -60.0),     // 月明かり
+    };
+    for (mut light, mut transform) in &mut sun_query {
+        light.color = color;
+        light.illuminance = illuminance;
+        *transform = Transform::from_xyz(sun_x, sun_y, 40.0).looking_at(Vec3::ZERO, Vec3::Y);
+    }
 }

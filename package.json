@@ -12,6 +12,8 @@
     "fmt": "cargo fmt",
     "fmt:check": "cargo fmt -- --check",
     "clean": "cargo clean",
-    "test": "cargo test"
+    "test": "cargo test",
+    "run:debug-exe": ".\\target\\debug\\rust_bevy_ui.exe",
+    "run:release-exe": ".\\target\\release\\rust_bevy_ui.exe"
   }
 }

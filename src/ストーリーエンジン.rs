@@ -2,13 +2,14 @@
 // 宣言的ストーリー定義 — データ構造・型定義のみ
 
 use bevy::prelude::*;
+use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 
 // =============================================================================
 // ゲーム内時間
 // =============================================================================
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct ゲーム日付 {
     pub 月: u32,
     pub 日: u32,
@@ -36,7 +37,7 @@ impl std::fmt::Display for ゲーム日付 {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum 時間帯 {
     朝,
     昼,
@@ -44,7 +45,7 @@ pub enum 時間帯 {
     夜,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Serialize, Deserialize)]
 pub struct ゲーム時間 {
     pub 日付: ゲーム日付,
     pub 時間帯: 時間帯,
@@ -86,7 +87,7 @@ impl ゲーム時間 {
 // フラグストア
 // =============================================================================
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct フラグストア {
     pub フラグ群: HashMap<String, bool>,
     pub カウンター群: HashMap<String, i32>,
@@ -114,7 +115,7 @@ impl フラグストア {
 // ドキュメントストア
 // =============================================================================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ドキュメント {
     pub タイトル: String,
     pub 本文: String,
@@ -122,7 +123,7 @@ pub struct ドキュメント {
     pub 既読: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ドキュメントカテゴリ {
     手紙,
     日記,
@@ -131,7 +132,7 @@ pub enum ドキュメントカテゴリ {
     メモ,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct ドキュメントストア {
     pub 文書群: Vec<ドキュメント>,
 }
@@ -156,7 +157,7 @@ impl ドキュメントストア {
 // メッセージストア
 // =============================================================================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct メッセージ {
     pub 送信者: String,
     pub 本文: String,
@@ -164,7 +165,7 @@ pub struct メッセージ {
     pub 既読: bool,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct メッセージストア {
     pub メッセージ群: Vec<メッセージ>,
 }
@@ -188,13 +189,13 @@ impl メッセージストア {
 // カレンダーストア
 // =============================================================================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct カレンダー予定 {
     pub 内容: String,
     pub 重要: bool,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct カレンダーストア {
     pub 予定群: HashMap<ゲーム日付, Vec<カレンダー予定>>,
 }
@@ -240,14 +241,14 @@ impl 通知ストア {
 // クエストストア
 // =============================================================================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct クエスト {
     pub 名前: String,
     pub 説明: String,
     pub 完了: bool,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct クエストストア {
     pub クエスト群: Vec<クエスト>,
 }
@@ -273,13 +274,13 @@ impl クエストストア {
 // 人物ストア
 // =============================================================================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct 人物 {
     pub 名前: String,
     pub 説明: String,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct 人物ストア {
     pub 人物群: Vec<人物>,
 }
@@ -298,14 +299,14 @@ impl 人物ストア {
 // タイムラインストア
 // =============================================================================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct タイムラインエントリ {
     pub 日付: ゲーム日付,
     pub 時間帯: 時間帯,
     pub テキスト: String,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct タイムラインストア {
     pub エントリ群: Vec<タイムラインエントリ>,
 }
@@ -372,7 +373,7 @@ pub struct 選択肢ストア {
 // 天候
 // =============================================================================
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 pub enum 天候種別 {
     #[default]
     晴れ,
@@ -382,7 +383,7 @@ pub enum 天候種別 {
     霧,
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Serialize, Deserialize)]
 pub struct 天候ストア {
     pub 現在: 天候種別,
 }

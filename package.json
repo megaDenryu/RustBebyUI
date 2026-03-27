@@ -1,0 +1,17 @@
+{
+  "name": "rust-bevy-ui",
+  "version": "0.1.0",
+  "description": "Bevy ECS ボクセルワールドゲーム ビルドスクリプト",
+  "scripts": {
+    "build": "cargo build",
+    "build:release": "cargo build --release",
+    "run": "cargo run",
+    "run:release": "cargo run --release",
+    "check": "cargo check",
+    "clippy": "cargo clippy",
+    "fmt": "cargo fmt",
+    "fmt:check": "cargo fmt -- --check",
+    "clean": "cargo clean",
+    "test": "cargo test"
+  }
+}

@@ -13,7 +13,7 @@ use futures_lite::future;
 const LOD1距離2乗: i32 = 6 * 6;
 const LOD2距離2乗: i32 = 12 * 12;
 const LOD4距離2乗: i32 = 17 * 17;
-const 毎フレーム最大タスク数: usize = 4;
+const 毎フレーム最大タスク数: usize = 16;
 const チャンク更新移動閾値: f32 = 0.5;
 
 fn LOD決定(距離2乗: i32) -> u32 {
@@ -165,16 +165,42 @@ pub fn チャンクタスク処理(
 // ユーティリティ
 // =============================================================================
 
-// Y方向はXZより狭い範囲で十分 (地形高さ ~0..35, チャンクサイズ 8.0)
-const Y描画距離: i32 = 2;
-
-fn 必要チャンク集合(center_cx: i32, center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
+/// 各XZ位置で地形高さをサンプリングし、地表面を含むY層のみ生成する。
+/// 「チャンクのY範囲が地形高さを跨ぐ」場合にのみそのY層を含める。
+/// 加えて、地表チャンクの上下1層ずつも含める(隣接面カリング用)。
+fn 必要チャンク集合(center_cx: i32, _center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
     let mut set = HashSet::new();
     for dx in -描画距離..=描画距離 {
         for dz in -描画距離..=描画距離 {
             if dx * dx + dz * dz > 描画距離 * 描画距離 { continue; }
-            for dy in -Y描画距離..=Y描画距離 {
-                set.insert((center_cx + dx, center_cy + dy, center_cz + dz));
+
+            let cx = center_cx + dx;
+            let cz = center_cz + dz;
+
+            // チャンク内の9点で地形高さをサンプリング
+            let wx = cx as f32 * チャンクのワールドサイズ;
+            let wz = cz as f32 * チャンクのワールドサイズ;
+            let half = チャンクのワールドサイズ * 0.5;
+            let mut max_h: f32 = -100.0;
+            let mut min_h: f32 = 100.0;
+            for &sx in &[wx, wx + half, wx + チャンクのワールドサイズ] {
+                for &sz in &[wz, wz + half, wz + チャンクのワールドサイズ] {
+                    let h = 地形生成::地形高さ(sx, sz);
+                    max_h = max_h.max(h);
+                    min_h = min_h.min(h);
+                }
+            }
+
+            // 地表面を含むY層: min_h のチャンクから max_h のチャンクまで
+            let cy_surface_min = (min_h / チャンクのワールドサイズ).floor() as i32;
+            let cy_surface_max = (max_h / チャンクのワールドサイズ).floor() as i32;
+
+            // 地表チャンク + 上下1層(隣接面カリング用)
+            let cy_bottom = (cy_surface_min - 1).max(-1);
+            let cy_top = cy_surface_max + 1;
+
+            for cy in cy_bottom..=cy_top {
+                set.insert((cx, cy, cz));
             }
         }
     }

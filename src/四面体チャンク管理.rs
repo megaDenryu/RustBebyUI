@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 use crate::ボクセル世界::{描画距離, チャンクのワールドサイズ};
 use crate::四面体メッシュ生成;
-use crate::地形生成;
+use crate::地形生成::{self};
 use crate::カメラ制御::カメラ操作;
 use crate::チャンク管理::ボクセル素材;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
@@ -13,7 +13,7 @@ use futures_lite::future;
 // LOD閾値 (チャンク管理と同じ値)
 const LOD1距離2乗: i32 = 6 * 6;
 const LOD2距離2乗: i32 = 12 * 12;
-const 毎フレーム最大タスク数: usize = 4;
+const 毎フレーム最大タスク数: usize = 16;
 const チャンク更新移動閾値: f32 = 0.5;
 
 fn LOD決定(距離2乗: i32) -> u32 {
@@ -131,16 +131,35 @@ pub fn 四面体チャンクタスク処理(
     }
 }
 
-// Y方向はXZより狭い範囲で十分 (地形高さ ~0..35, チャンクサイズ 8.0)
-const Y描画距離: i32 = 2;
-
-fn 必要チャンク集合(center_cx: i32, center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
+fn 必要チャンク集合(center_cx: i32, _center_cy: i32, center_cz: i32) -> HashSet<(i32, i32, i32)> {
     let mut set = HashSet::new();
     for dx in -描画距離..=描画距離 {
         for dz in -描画距離..=描画距離 {
             if dx * dx + dz * dz > 描画距離 * 描画距離 { continue; }
-            for dy in -Y描画距離..=Y描画距離 {
-                set.insert((center_cx + dx, center_cy + dy, center_cz + dz));
+
+            let cx = center_cx + dx;
+            let cz = center_cz + dz;
+
+            let wx = cx as f32 * チャンクのワールドサイズ;
+            let wz = cz as f32 * チャンクのワールドサイズ;
+            let half = チャンクのワールドサイズ * 0.5;
+            let mut max_h: f32 = -100.0;
+            let mut min_h: f32 = 100.0;
+            for &sx in &[wx, wx + half, wx + チャンクのワールドサイズ] {
+                for &sz in &[wz, wz + half, wz + チャンクのワールドサイズ] {
+                    let h = 地形生成::地形高さ(sx, sz);
+                    max_h = max_h.max(h);
+                    min_h = min_h.min(h);
+                }
+            }
+
+            let cy_surface_min = (min_h / チャンクのワールドサイズ).floor() as i32;
+            let cy_surface_max = (max_h / チャンクのワールドサイズ).floor() as i32;
+            let cy_bottom = (cy_surface_min - 1).max(-1);
+            let cy_top = cy_surface_max + 1;
+
+            for cy in cy_bottom..=cy_top {
+                set.insert((cx, cy, cz));
             }
         }
     }

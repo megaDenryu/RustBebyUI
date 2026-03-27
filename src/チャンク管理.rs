@@ -36,6 +36,9 @@ pub struct チャンク管理者 {
 #[derive(Resource)]
 pub struct ボクセル素材(pub Handle<StandardMaterial>);
 
+#[derive(Resource)]
+pub struct 水素材(pub Handle<StandardMaterial>);
+
 #[derive(Component)]
 pub struct チャンク描画データ {
     pub cx: i32,
@@ -47,7 +50,7 @@ pub struct チャンク描画データ {
 #[derive(Component)]
 pub struct チャンクタスク {
     pub 位置: (i32, i32, i32),
-    pub タスク: Task<Option<((i32, i32, i32), チャンク, Mesh, u32)>>,
+    pub タスク: Task<Option<((i32, i32, i32), チャンク, メッシュ生成::メッシュ生成結果, u32)>>,
 }
 
 // =============================================================================
@@ -105,8 +108,8 @@ pub fn チャンク管理処理(
         manager.読込中.insert(pos);
         let task = pool.spawn(async move {
             let chunk = 地形生成::チャンク地形生成(pos.0, pos.1, pos.2);
-            let mesh = メッシュ生成::メッシュ生成(&chunk, target_lod);
-            Some((pos, chunk, mesh, target_lod))
+            let result = メッシュ生成::メッシュ生成(&chunk, target_lod);
+            Some((pos, chunk, result, target_lod))
         });
         commands.spawn(チャンクタスク { 位置: pos, タスク: task });
     }
@@ -120,6 +123,7 @@ pub fn チャンクタスク処理(
     mut manager: ResMut<チャンク管理者>,
     mut meshes: ResMut<Assets<Mesh>>,
     material: Res<ボクセル素材>,
+    water_material: Res<水素材>,
 ) {
     let mut 登録数 = 0;
     for (task_entity, mut chunk_task) in &mut tasks {
@@ -127,29 +131,46 @@ pub fn チャンクタスク処理(
         if let Some(result) = future::block_on(future::poll_once(&mut chunk_task.タスク)) {
             commands.entity(task_entity).despawn();
 
-            if let Some((pos, chunk, mesh, lod)) = result {
+            if let Some((pos, chunk, mesh_result, lod)) = result {
                 if !manager.読込中.contains(&pos) { continue; }
 
                 if let Some((old_entity, _, _)) = manager.読込済み.get(&pos) {
                     commands.entity(*old_entity).despawn_recursive();
                 }
 
-                // 空メッシュ(全て空気)はEntity不生成でスキップ
-                let has_vertices = mesh.count_vertices() > 0;
-                if has_vertices {
-                    let entity = commands.spawn((
-                        Mesh3d(meshes.add(mesh)),
-                        MeshMaterial3d(material.0.clone()),
-                        Transform::from_xyz(
-                            pos.0 as f32 * チャンクのワールドサイズ,
-                            pos.1 as f32 * チャンクのワールドサイズ,
-                            pos.2 as f32 * チャンクのワールドサイズ,
-                        ),
-                        チャンク描画データ { cx: pos.0, cy: pos.1, cz: pos.2, lod },
-                    )).id();
+                let chunk_transform = Transform::from_xyz(
+                    pos.0 as f32 * チャンクのワールドサイズ,
+                    pos.1 as f32 * チャンクのワールドサイズ,
+                    pos.2 as f32 * チャンクのワールドサイズ,
+                );
+
+                let has_solid = mesh_result.固体.count_vertices() > 0;
+                let has_water = mesh_result.水.count_vertices() > 0;
+
+                if has_solid || has_water {
+                    let entity = if has_solid {
+                        commands.spawn((
+                            Mesh3d(meshes.add(mesh_result.固体)),
+                            MeshMaterial3d(material.0.clone()),
+                            chunk_transform,
+                            チャンク描画データ { cx: pos.0, cy: pos.1, cz: pos.2, lod },
+                        )).id()
+                    } else {
+                        commands.spawn_empty().id()
+                    };
+
+                    // 水メッシュは別Entityとして子に追加
+                    if has_water {
+                        commands.spawn((
+                            Mesh3d(meshes.add(mesh_result.水)),
+                            MeshMaterial3d(water_material.0.clone()),
+                            chunk_transform,
+                            チャンク描画データ { cx: pos.0, cy: pos.1, cz: pos.2, lod },
+                        ));
+                    }
+
                     manager.読込済み.insert(pos, (entity, chunk, lod));
                 } else {
-                    // 空チャンクもデータは保持 (衝突判定用)、ダミーEntity
                     let entity = commands.spawn_empty().id();
                     manager.読込済み.insert(pos, (entity, chunk, lod));
                 }

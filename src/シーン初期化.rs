@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 use crate::ボクセル世界;
 use crate::カメラ制御::カメラ操作;
-use crate::チャンク管理::{チャンク管理者, ボクセル素材};
+use crate::チャンク管理::{チャンク管理者, ボクセル素材, 水素材};
 use crate::四面体チャンク管理::四面体チャンク管理者;
 
 // =============================================================================
@@ -50,6 +50,15 @@ pub fn シーン初期化(
         ..default()
     });
     commands.insert_resource(ボクセル素材(voxel_mat));
+
+    let water_mat = materials.add(StandardMaterial {
+        base_color: Color::srgba(0.15, 0.4, 0.8, 0.5),
+        unlit: false,
+        perceptual_roughness: 0.3,
+        alpha_mode: AlphaMode::Blend,
+        ..default()
+    });
+    commands.insert_resource(水素材(water_mat));
 
     // --- カメラ + フォグ ---
     let fog_color = Color::srgb(0.53, 0.72, 0.9);

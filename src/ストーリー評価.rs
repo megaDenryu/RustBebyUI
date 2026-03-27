@@ -807,6 +807,46 @@ pub fn 調査システム(
     }
 }
 
+/// 水中ビジュアル: カメラが水面以下のとき、フォグ・環境光・ClearColorを切替
+pub fn 水中ビジュアル更新(
+    camera_query: Query<&Transform, With<crate::カメラ制御::カメラ操作>>,
+    mut fog_query: Query<(&mut DistanceFog, &mut Camera)>,
+    mut ambient: ResMut<AmbientLight>,
+    mut 前回水中: Local<Option<bool>>,
+) {
+    let Ok(cam) = camera_query.get_single() else { return };
+    let 水中 = cam.translation.y < crate::ボクセル世界::水面高さ;
+
+    // 状態が変わったときだけ更新
+    if *前回水中 == Some(水中) { return; }
+    *前回水中 = Some(水中);
+
+    if 水中 {
+        let water_fog = Color::srgb(0.05, 0.15, 0.3);
+        for (mut fog, mut camera) in &mut fog_query {
+            fog.color = water_fog;
+            fog.falloff = FogFalloff::Linear { start: 1.0, end: 20.0 };
+            camera.clear_color = ClearColorConfig::Custom(water_fog);
+        }
+        ambient.color = Color::srgb(0.1, 0.2, 0.4);
+        ambient.brightness = 150.0;
+    } else {
+        // 地上に戻る: 天候ビジュアル更新が次フレームで正しい値に復元する
+        // ここではデフォルト(晴れ)の値にリセット
+        let sky_fog = Color::srgb(0.53, 0.72, 0.9);
+        for (mut fog, mut camera) in &mut fog_query {
+            fog.color = sky_fog;
+            fog.falloff = FogFalloff::Linear {
+                start: 8.0 * crate::ボクセル世界::チャンクのワールドサイズ,
+                end: 19.0 * crate::ボクセル世界::チャンクのワールドサイズ,
+            };
+            camera.clear_color = ClearColorConfig::Custom(sky_fog);
+        }
+        ambient.color = Color::srgb(0.6, 0.7, 0.9);
+        ambient.brightness = 800.0;
+    }
+}
+
 /// 昼夜サイクル: 時間帯に応じて太陽光の色・角度を変更
 pub fn 昼夜サイクル更新(
     時間: Res<ゲーム時間>,

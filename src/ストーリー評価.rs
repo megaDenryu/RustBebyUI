@@ -678,6 +678,9 @@ pub fn ヘルプ表示更新(
                         ("↑↓ Enter   選択肢操作", false),
                         ("Enter/Space 会話送り", false),
                         ("Esc        キャンセル / 閉じる", false),
+                        ("", false),
+                        ("F5         セーブ", false),
+                        ("F9         ロード", false),
                         ("H          このヘルプを閉じる", false),
                     ];
                     for (text, accent) in lines {

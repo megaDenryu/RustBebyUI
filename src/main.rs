@@ -26,6 +26,8 @@ mod ストーリーエンジン;
 mod ストーリー評価;
 #[path = "サンプルストーリー.rs"]
 mod サンプルストーリー;
+#[path = "セーブ.rs"]
+mod セーブ;
 
 use bevy::prelude::*;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
@@ -69,10 +71,14 @@ fn ストーリー初期化(
     let mut エリア = ストーリーエンジン::エリアストア::default();
     サンプルストーリー::エリア初期化(&mut エリア);
 
+    let mut 調査 = ストーリーエンジン::調査ポイントストア::default();
+    サンプルストーリー::調査ポイント初期化(&mut 調査);
+
     let mut エンジン = ストーリーエンジン::ストーリーエンジン::default();
     エンジン.イベント群登録(サンプルストーリー::第一章イベント群());
     エンジン.イベント群登録(サンプルストーリー::第二章イベント群());
     エンジン.イベント群登録(サンプルストーリー::第三章イベント群());
+    エンジン.イベント群登録(サンプルストーリー::サブイベント群());
 
     commands.insert_resource(ストーリーエンジン::ゲーム時間::default());
     commands.insert_resource(ストーリーエンジン::フラグストア::default());
@@ -87,7 +93,7 @@ fn ストーリー初期化(
     commands.insert_resource(ストーリーエンジン::選択肢ストア::default());
     commands.insert_resource(ストーリーエンジン::天候ストア::default());
     commands.insert_resource(ストーリーエンジン::会話ストア::default());
-    commands.insert_resource(ストーリーエンジン::調査ポイントストア::default());
+    commands.insert_resource(調査);
     commands.insert_resource(ストーリーエンジン::ヘルプ表示::default());
     commands.insert_resource(エンジン);
 }
@@ -156,6 +162,11 @@ fn main() {
             ストーリー評価::天候表示更新,
             ストーリー評価::未読バッジ更新,
             ストーリー評価::昼夜サイクル更新,
+        ))
+        // セーブ/ロード
+        .add_systems(Update, (
+            セーブ::セーブシステム,
+            セーブ::ロードシステム,
         ))
         .run();
 }

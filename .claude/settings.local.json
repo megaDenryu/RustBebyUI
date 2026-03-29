@@ -53,7 +53,8 @@
       "Grep",
       "WebFetch",
       "WebSearch",
-      "Agent"
+      "Agent",
+      "Bash(python:*)"
     ]
   }
 }

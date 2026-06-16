@@ -17,7 +17,7 @@ center_cz = 1
 
 total_chunks = 0
 xz_positions = 0
-y_layers_hist = {}
+y_layers_hist: dict[int, int] = {}
 
 for dx in range(-DRAW_DIST, DRAW_DIST + 1):
     for dz in range(-DRAW_DIST, DRAW_DIST + 1):
